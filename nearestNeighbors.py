@@ -13,13 +13,17 @@ def convertToNode():
     address = "25 Kings Court"
     centerX = 45
     centerY = 90
-    n = node.node(id, address, price, sqft, distanceToMetro, centerX, centerY)
+    n = node.Node(id, address, price, sqft, distanceToMetro, centerX, centerY)
     return n
 
+
 def warmupFill(numInitialNodes=100):
+    # TODO
     x = 1
 
+
 def run():
+    # TODO
     x = 1
 
 
