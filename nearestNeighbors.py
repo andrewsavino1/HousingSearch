@@ -1,5 +1,7 @@
-import node
+from node import *
 import createSet
+import numpy
+import statsmodels.api as sm
 
 
 def convertToNode(data):
@@ -8,14 +10,41 @@ def convertToNode(data):
     return node
 
 
-def warmupFill(lot_nodes, anchor_nodes, numInitialNodes=100):
+def warmupFill(lot_nodes, anchor_nodes, numInitialNodes=100, sample_size=100):
     # TODO
+    anchor_size_initial = 7
 
     # take random sample of lot nodes and perform regression (can probably import something to do this for us
 
+    # using this: https://towardsdatascience.com/simple-and-multiple-linear-regression-in-python-c928425168f9
+    random_sample_nodes = numpy.random.choice(lot_nodes, sample_size, replace=False)
+    sqft_vector = map(lambda x: x.sqft, random_sample_nodes)
+    price_vector = map(lambda x: x.price, random_sample_nodes)
+    metro_vector = map(lambda x: x.distanceToMetro, random_sample_nodes)
+    model = sm.OLS(price_vector, metro_vector).fit()
+    predictions = model.predict(metro_vector)
+    # TODO - make this work!!!
+
     # populate anchor nodes
+    max_price = max(price_vector)
+    max_metro = max(metro_vector)
+    max_sqft = max(sqft_vector)
+    for i in range(anchor_size_initial):
+        for j in range(anchor_size_initial):
+            for k in range(anchor_size_initial):
+                anchor_nodes[i][j].append(AnchorNode(i*10000+j*100+k))
 
     # connect anchor nodes (up, down, left, right, AND diagonal)
+    for i in range(7):
+        for j in range(7):
+            for k in range(7):
+                for i_ in range(i-1, i+2):
+                    for j_ in range(j-1, j+2):
+                        for k_ in range(k-1, k+2):
+                            if i_ < (anchor_size_initial and j_ < anchor_size_initial and k_ < anchor_size_initial
+                                and i_ > 0 and j_ > 0 and k_ > 0 and i != i_ and j != j_ and k != k_):
+                                anchor_nodes[i][j][k].addNeighbor(anchor_nodes[i_][j_][k_])
+        # ... eww ^
 
     for node in lot_nodes:
         # assign it to its nearest anchor node
@@ -44,6 +73,7 @@ def findAnchorNode(lot_node, anchor_nodes, price_delta, sqft_delta, metro_delta=
 def populate_database():
     # important constants
     warmup_size = 100
+    sample_size = 100
 
     # node lists (anchor nodes need to be Random access, lot nodes theoretically don't - this is only used for
     # initialization
@@ -71,7 +101,7 @@ def populate_database():
 
     # run warmupFill to start populating the database (split the list into 2 sublists, warmup and all else (or just
     # pick an index to be the cutoff
-    warmupFill(lot_nodes, anchor_nodes, warmup_size)
+    warmupFill(lot_nodes, anchor_nodes, warmup_size, sample_size)
 
     # do fill up everything else
     for datapoint in datapoint_list:

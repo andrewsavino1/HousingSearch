@@ -8,7 +8,7 @@ dist_park_threshold = 0 # TODO
 class Node:
     def __init__(self, id_):
         self.id = id_
-        self.neighbors = []  # TODO - turn this into some sort of ordered set
+        self.neighbors = []
 
     def __hash__(self):
         return self.id
@@ -64,8 +64,4 @@ class LotNode(Node):
 
 class AnchorNode(Node):
     def __init__(self, id_):
-        super(AnchorNode, self).__init__(self)
-
-
-def
-
+        super(AnchorNode, self).__init__(id_)

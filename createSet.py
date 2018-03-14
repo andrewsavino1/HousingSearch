@@ -41,5 +41,3 @@ def populateParksandPlaygroundsList():
     # TODO
 
     return p_and_p
-
-#populateGroceryStoreList()
