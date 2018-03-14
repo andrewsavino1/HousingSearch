@@ -21,3 +21,6 @@ class MetroStop(Location):
         super(MetroStop, self).__init__(x, y)
         self.name = name
 
+    def __str__(self):
+        return self.name
+
