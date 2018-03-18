@@ -61,6 +61,11 @@ class LotNode(Node):
         if dist_school < dist_school_threshold and dist_park < dist_park_threshold:
             self.kidFriendly = True
 
+    def matches_conditions(self, argv):
+        # TODO - argv is a list of the conditions the search requires (including continuous variables)
+        # return the number of conditions matched (so easier to do "nar"
+        return 0
+
 
 class AnchorNode(Node):
     def __init__(self, id_):

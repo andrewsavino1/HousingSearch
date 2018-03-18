@@ -11,7 +11,6 @@ def convertToNode(data):
 
 
 def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
-    # TODO
     anchor_size_initial = 7
 
     # take random sample of lot nodes and perform regression (can probably import something to do this for us
@@ -75,12 +74,46 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
 
 
 def findAnchorNode(lot_node, anchor_nodes, price_delta, sqft_delta, metro_delta=None):
-    price_coord = lot_node.price / price_delta  # TODO floor this
+    price_coord = lot_node.price / price_delta  # TODO floor all of these
     sqft_coord = lot_node.sqft / sqft_delta
     if metro_delta is not None:
         metro_coord = lot_node.distanceToMetro / metro_delta
         return anchor_nodes[price_coord][sqft_coord][metro_coord]
     return anchor_nodes[price_coord][sqft_coord]
+
+
+def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter):
+    assert(starting_node.neighbors[0])  # verify the node has an anchor node
+    if neighbor_counter < k:
+        possible_new_neighbors = []
+        for connected_node in searching_node.neighbors[0].neighbors:  # first, add the nodes at this level of recursion
+            lot_tuple = connected_node, starting_node.getDistance(connected_node)
+            if lot_tuple not in searching_node.neighbors and lot_tuple not in possible_new_neighbors:
+                possible_new_neighbors.append(lot_tuple)
+                neighbor_counter += 1
+        for next_node in possible_new_neighbors:
+            find_nearest_neighbors(starting_node, next_node, k, neighbor_list, neighbor_counter)
+
+        # then appropriately merge the lists back together (TODO - remind myself how k-way mergesort works)
+        # to be honest, could probably just use whatever python uses to sort, just have to define the comparator
+        # in the node class (but MAKE SURE anchor node stays #1)
+
+        neighbor_list = (neighbor_list.append(possible_new_neighbors)).sort()
+        if len(neighbor_list) > k:
+            neighbor_list = neighbor_list[0::k]  # TODO maybe there's a better way to do this
+
+        # TODO - when a a connected_node is checked, it should also see if it needs to update its own nearest neighbors
+        #  and update appropriately if so
+        return neighbor_list
+
+
+def add_node_to_database(node, k):
+    node.addNeighbor(findAnchorNode(node, k))  # add the anchor node
+
+    # add the neighbor nodes
+    k_nearest_neighbors = find_nearest_neighbors(node, node, k, [], 0)
+    for n in k_nearest_neighbors:
+        node.addNeighbor(n)
 
 
 def populate_database():
@@ -117,4 +150,5 @@ def populate_database():
     warmupFill(lot_nodes, anchor_nodes, k, warmup_size, sample_size)
 
     # do fill up everything else
-    # for datapoint in datapoint_list:
+    for node in lot_nodes[100::]:
+        add_node_to_database(node, k)
