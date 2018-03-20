@@ -3,6 +3,8 @@ import createSet
 import numpy
 import statsmodels.api as sm
 
+global sqft_mult, metro_mult, price_delta, sqft_delta, metro_delta
+
 
 def convertToNode(data):
     # TODO getData
@@ -11,6 +13,8 @@ def convertToNode(data):
 
 
 def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
+    # TODO: how do to a 3d array for anchor nodes in python? dimensions must all be expandable
+    global metro_mult, sqft_mult, sqft_delta, metro_delta, price_delta
     anchor_size_initial = 7
 
     # take random sample of lot nodes and perform regression (can probably import something to do this for us
@@ -22,7 +26,9 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
     metro_vector = map(lambda x: x.distanceToMetro, random_sample_nodes)
     model = sm.OLS(price_vector, metro_vector).fit()
     predictions = model.predict(metro_vector)
-    # TODO - make this work!!!
+    # TODO - make this work -> and populate these values:
+    metro_mult = 1
+    sqft_mult = 1
 
     # populate anchor nodes
     price_delta = max(price_vector) / anchor_size_initial
@@ -47,7 +53,7 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
 
     for node in lot_nodes:
         # assign it to its nearest anchor node
-        node.addNeighbor(findAnchorNode(node, anchor_nodes, price_delta, sqft_delta, metro_delta))
+        node.addNeighbor(findAnchorNode(node, anchor_nodes))
 
     # calculate distances between nodes (note - let's not do it redundantly.  If we know a->b, we know b->a.
     # i.e. we should fill out an upper-triangular distance matrix and get the smallest (non-zero/None) distances
@@ -63,7 +69,7 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
     for i in range(numInitialNodes):
         for j in range(numInitialNodes):
             if j < i:
-                A[i][j] = lot_nodes[i].getDistance(lot_nodes[j])
+                A[i][j] = lot_nodes[i].getDistance(lot_nodes[j], sqft_mult, metro_mult)
     A = A + numpy.transpose(A)
 
     # now we find the smallest values in each row, return their indexes, and set those as the (initial) k-n-n
@@ -72,38 +78,48 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
         for n in idx:
             lot_nodes[i].addNeighbor(lot_nodes[n])
 
+    return sqft_mult, metro_mult
 
-def findAnchorNode(lot_node, anchor_nodes, price_delta, sqft_delta, metro_delta=None):
-    price_coord = lot_node.price / price_delta  # TODO floor all of these
-    sqft_coord = lot_node.sqft / sqft_delta
+
+def expand_anchor_grid():
+    # TODO - write this function
+    raise ValueError('This method has not been implemented yet')
+
+
+def findAnchorNode(lot_node, anchor_nodes):
+    global price_delta, sqft_delta, metro_delta
+    price_coord = lot_node.price // price_delta
+    sqft_coord = lot_node.sqft // sqft_delta
     if metro_delta is not None:
-        metro_coord = lot_node.distanceToMetro / metro_delta
+        metro_coord = lot_node.distanceToMetro // metro_delta
         return anchor_nodes[price_coord][sqft_coord][metro_coord]
     return anchor_nodes[price_coord][sqft_coord]
 
 
 def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter):
+    global sqft_mult, metro_mult
     assert(starting_node.neighbors[0])  # verify the node has an anchor node
     if neighbor_counter < k:
         possible_new_neighbors = []
         for connected_node in searching_node.neighbors[0].neighbors:  # first, add the nodes at this level of recursion
-            lot_tuple = connected_node, starting_node.getDistance(connected_node)
-            if lot_tuple not in searching_node.neighbors and lot_tuple not in possible_new_neighbors:
-                possible_new_neighbors.append(lot_tuple)
-                neighbor_counter += 1
+            lot_tuple = connected_node, starting_node.getDistance(connected_node, sqft_mult, metro_mult)
+            if lot_tuple not in searching_node.neighbors:
+                if connected_node.getDistance(starting_node, sqft_mult, metro_mult) < searching_node.neighbors[-1][1]:
+                    # replace furthest neighbor of the searching node with this new node, then sort so order maint.
+                    searching_node.neighbors[-1] = (starting_node, connected_node.getDistance(starting_node,
+                                                                                              sqft_mult, metro_mult))
+                    searching_node.sort(key=(lambda x: x[1]))
+
+                if lot_tuple not in possible_new_neighbors:
+                    possible_new_neighbors.append(lot_tuple)
+                    neighbor_counter += 1
         for next_node in possible_new_neighbors:
             find_nearest_neighbors(starting_node, next_node, k, neighbor_list, neighbor_counter)
 
-        # then appropriately merge the lists back together (TODO - remind myself how k-way mergesort works)
-        # to be honest, could probably just use whatever python uses to sort, just have to define the comparator
-        # in the node class (but MAKE SURE anchor node stays #1)
+        (neighbor_list.append(possible_new_neighbors)).sort(key=(lambda x: x[1]))
+        if len(neighbor_list) > k+1:
+            neighbor_list = neighbor_list[0::k+2]  # TODO maybe there's a better way to do this - verify +2 is right
 
-        neighbor_list = (neighbor_list.append(possible_new_neighbors)).sort()
-        if len(neighbor_list) > k:
-            neighbor_list = neighbor_list[0::k]  # TODO maybe there's a better way to do this
-
-        # TODO - when a a connected_node is checked, it should also see if it needs to update its own nearest neighbors
-        #  and update appropriately if so
         return neighbor_list
 
 
@@ -125,7 +141,7 @@ def populate_database():
     # node lists (anchor nodes need to be Random access, lot nodes theoretically don't - this is only used for
     # initialization
     lot_nodes = []
-    anchor_nodes = [[[]]]  # TODO - do this correctly lol
+    anchor_nodes = [[[]]]
 
     # create set of grocery stores
     grocery_stores = createSet.populateGroceryStoreList()
@@ -147,8 +163,8 @@ def populate_database():
 
     # run warmupFill to start populating the database (split the list into 2 sublists, warmup and all else (or just
     # pick an index to be the cutoff
-    warmupFill(lot_nodes, anchor_nodes, k, warmup_size, sample_size)
+    sqft_mult, metro_mult = warmupFill(lot_nodes, anchor_nodes, k, warmup_size, sample_size)
 
     # do fill up everything else
     for node in lot_nodes[100::]:
-        add_node_to_database(node, k)
+        add_node_to_database(node, k, sqft_mult, metro_mult)

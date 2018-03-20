@@ -2,19 +2,20 @@ from location import *
 
 # threshold distances for
 grocery_distance_threshold = 0.3
-dist_school_threshold = 0 # TODO
-dist_park_threshold = 0 # TODO
+dist_school_threshold = 0  # TODO
+dist_park_threshold = 0  # TODO
+
 
 class Node:
     def __init__(self, id_):
         self.id = id_
-        self.neighbors = []
+        self.neighbors = []  # this will be a list of (node, distance_to_node)
 
     def __hash__(self):
         return self.id
 
     def addNeighbor(self, node):
-        self.neighbors.append(node)
+        self.neighbors.append((node, 0))
 
 
 class LotNode(Node):
@@ -45,10 +46,12 @@ class LotNode(Node):
         return (self.address + '\n\tPrice: ' + str(self.price) + '\n\tsqft: ' + str(self.sqft)
                 + '\n\tDistance to Metro: ' + str(self.distanceToMetro))
 
-    def getDistance(self, node2):
-        # TODO get the multipliers for the modified Euclidian space
-        return ((self.price - node2.price) ** 2 + (self.sqft - node2.sqft) ** 2 +
-                (self.distanceToMetro - node2.distanceToMetro) ** 2) ** 0.5
+    def addNeighbor(self, node_tuple):
+        self.neighbors.append(self, node_tuple)
+
+    def getDistance(self, node2, sqft_mult, metro_mult):
+        return ((self.price - node2.price) ** 2 + (sqft_mult*(self.sqft - node2.sqft)) ** 2 +
+                (metro_mult*(self.distanceToMetro - node2.distanceToMetro)) ** 2) ** 0.5
 
     def setMetroDistsance(self, dist):
         self.distanceToMetro = dist
