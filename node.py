@@ -42,12 +42,18 @@ class LotNode(Node):
         # nearest neighbors:
         self.numNeighbors = 0  # use this to limit the number of nearest neighbors to k
 
+        # Anchor node
+        self.anchor_node = None
+
     def __str__(self):
         return (self.address + '\n\tPrice: ' + str(self.price) + '\n\tsqft: ' + str(self.sqft)
                 + '\n\tDistance to Metro: ' + str(self.distanceToMetro))
 
     def addNeighbor(self, node_tuple):
         self.neighbors.append(self, node_tuple)
+
+    def setAnchor(self, anchor):
+        self.anchor_node = anchor
 
     def getDistance(self, node2, sqft_mult, metro_mult):
         return ((self.price - node2.price) ** 2 + (sqft_mult*(self.sqft - node2.sqft)) ** 2 +
