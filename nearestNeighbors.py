@@ -2,14 +2,30 @@ from node import *
 import createSet
 import numpy
 import statsmodels.api as sm
+import urllib.request
+from bs4 import BeautifulSoup
 
 global sqft_mult, metro_mult, price_delta, sqft_delta, metro_delta
 
 
 def convertToNode(data):
     # TODO getData
+    url = "https://www.stlouis-mo.gov/government/departments/sldc/real-estate" \
+          "/lra-owned-property-search.cfm?detail=1&parcelId=" \
+          + str(data['ParcelID'])
+    page = urllib.request.urlopen(url)
+    soup = BeautifulSoup(page, "lxml")
+    table = soup.find('table', class_='data vertical-table striped')
+    info = dict()
+    for row in table.findAll('tr'):
+        cells = row.findAll('td')
+        states = row.findAll('th')
+        info[states[0].find(text=True)] = cells[0].find(text=True)
 
-    return data
+    node = LotNode(int(info['Parcel ID']), info['Property Address'],
+                    info['Value (Standard or Appraised)'],
+                    info['Lot Square Feet'], data['centerX'], data['centerY'])
+    return node
 
 
 def get_anchor_code(i, j, k):
