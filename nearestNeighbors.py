@@ -4,6 +4,8 @@ import numpy
 import statsmodels.api as sm
 import urllib.request
 from bs4 import BeautifulSoup
+import getopt
+import sys
 
 global sqft_mult, metro_mult, price_delta, sqft_delta, metro_delta
 
@@ -202,3 +204,83 @@ def populate_database():
     # do fill up everything else
     for node in lot_nodes[warmup_size::]:
         add_node_to_database(node, k, anchor_nodes)
+
+
+def get_search_parameters():
+    price_min_input = input("Enter a price minimum (or 'N' if not applicable): ")
+    while not checkInt(price_min_input):
+        print("Error. Price minimum must be a integer value.")
+        price_min_input = input("Enter a price minimum (or 'N' if not applicable): ")
+
+    price_max_input = input("Enter a price maximum (or 'N' if not applicable): ")
+    while not checkInt(price_max_input):
+        print("Error. Price maximum must be a integer value.")
+        price_max_input = input("Enter a price maximum (or 'N' if not applicable): ")
+
+    metro_dist_input = input("Enter a maximum acceptable distance to a metro stop (or 'N' if not applicable): ")
+    while not checkInt(metro_dist_input):
+        print("Error. Distance maximum must be a integer value.")
+        price_min_input = input("Enter a maximum acceptable distance to a metro stop (or 'N' if not applicable):")
+
+    acreage_min_input = input("Enter a minimum acceptable acreage (or 'N' if not applicable): ")
+    while not checkInt(acreage_min_input):
+        print("Error. Acreage minimum must be an integer value.")
+        acreage_min_input = input("Enter a minimum acceptable acreage (or 'N' if not applicable): ")
+
+    parking_input = input("Do you require a parking spot? Y/N: ")
+    while not checkBin(parking_input):
+        print("Error. Entered value must be either 'Y' or 'N'.")
+        parking_input = input("Do you require a parking spot? Y/N: ")
+
+    grocery_input = input("Do you need to be within walking distance of a grocery store? Y/N: ")
+    while not checkBin(grocery_input):
+        print("Error. Entered value must be either 'Y' or 'N'.")
+        grocery_input = input("Do you need to be within walking distance of a grocery store? Y/N: ")
+
+    family_input = input("Do you require a family-friendly property? Y/N: ")
+    while not checkBin(family_input):
+        print("Error. Entered value must be either 'Y' or 'N'.")
+        family_input = input("Do you require a family-friendly property? Y/N: ")
+
+    property_input = input("Do you wish to search over empty lots? Y/N: ")
+    while not checkBin(property_input):
+        print("Error. Entered value must be either 'Y' or 'N'.")
+        family_input = input("Do you require a family-friendly property? Y/N: ")
+
+    price_min = int(str(price_min_input))
+    price_max = int(str(price_max_input))
+    metro_dist = int(str(metro_dist_input))
+    acreage_min = int(str(acreage_min_input))
+
+    parking = True if str(parking_input) == "Y" else False
+    grocery = True if str(grocery_input) == "Y" else False
+    family = True if str(family_input) == "Y" else False
+    property = True if str(property_input) == "Y" else False
+
+
+# check that user argument is a valid integer
+# TODO - make this method more clever
+def checkInt(s):
+    try:
+        int(str(s))
+        return True
+    except ValueError:
+        if str(s) == 'N':
+            return True
+        return False
+
+# check that user argument is valid binary value
+def checkBin(s):
+    if str(s) == 'N' or str(s) == 'Y':
+        return True
+    return False
+
+
+def main():
+    warmupFill()
+    populate_database()
+    while True:
+        get_search_parameters()
+
+
+if __name__ == '__main__': main()
