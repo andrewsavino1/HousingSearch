@@ -7,8 +7,9 @@ class Location:
         return str(self.x) + ' , ' + str(self.y)
 
     def getDistance(self, loc2):
+        multiplier = 0.261  # - distance multiplier for manhattan distance
         """return the Manhattan distance of 2 Locations"""
-        return abs(loc2.x - self.x) + abs(loc2.y - self.y)
+        return abs(loc2.x - self.x)*multiplier + abs(loc2.y - self.y)
 
 
 class GroceryStore(Location):
