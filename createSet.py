@@ -37,7 +37,7 @@ metro_raw_coordinates = [(38.6279026,-90.1925076,'8th & Pine'),
                          (38.629174,-90.207592,'Union Station'),
                          (38.6517126,-90.31533,'University City–Big Bend'),
                          (38.6137168,-90.0952038,'Washington Park'),
-                         (38.669179,-90.2983697,'Wellston'),
+                         (38.669179,-90.2983697,'Wellston')
                          ]
 
 
