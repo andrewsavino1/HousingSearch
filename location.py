@@ -25,3 +25,11 @@ class MetroStop(Location):
     def __str__(self):
         return self.name
 
+class allSchools(Location):
+    def __init__(self, x, y):
+        super(allSchools, self).__init__(x, y)
+
+
+class grounds(Location):
+    def __init__(self, x, y):
+        super(grounds, self).__init__(x, y)

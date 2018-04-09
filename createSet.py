@@ -3,7 +3,7 @@ import geojson as geo
 import os
 
 metro_raw_coordinates = [(38.6279026,-90.1925076,'8th & Pine'),
-                         (38.5218998,-89.9744728,'Belleville),
+                         (38.5218998,-89.9744728,'Belleville'),
                          (38.6284464,-90.3379964,'Brentwood I-64'),
                          (38.6359936,-90.2624496,'Central West End'),
                          (38.624924,-90.2031208,'Civic Center'),
@@ -60,14 +60,25 @@ def populateGroceryStoreList():
 
 def populateSchoolList():
     schools = []
-    # TODO
+    callstr = os.getcwd() + '\\Data\\PrivateSchool.geojson'
+    private_school_data = geo.load(open(callstr))
+    for school in private_school_data["features"]:
+        schools.append(allSchools(school["properties"]["X"], school["properties"]["Y"]))
+
+    callstr = os.getcwd() + '\\Data\\PublicCharterSchool.geojson'
+    charter_school_data = geo.load(open(callstr))
+    for school in charter_school_data["features"]:
+        schools.append(allSchools(school["properties"]["X"], school["properties"]["Y"]))
 
     return schools
 
 
 def populateParksandPlaygroundsList():
     p_and_p = []
-
-    # TODO
+    callstr = os.getcwd() + '\\Data\\Playgrounds.geojson'
+    playgrounds_data = geo.load(open(callstr))
+    for ground in playgrounds_data["features"]:
+        p_and_p.append(grounds(ground["properties"]["x_coordina"], ground["properties"]["y_coordina"]))
 
     return p_and_p
+
