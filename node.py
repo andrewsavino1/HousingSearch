@@ -50,7 +50,8 @@ class LotNode(Node):
                 + '\n\tDistance to Metro: ' + str(self.distanceToMetro))
 
     def addNeighbor(self, node_tuple):
-        self.neighbors.append(self, node_tuple)
+        self.neighbors.append(node_tuple)
+        self.numNeighbors += 1
 
     def setAnchor(self, anchor):
         self.anchor_node = anchor
