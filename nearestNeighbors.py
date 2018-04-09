@@ -10,7 +10,7 @@ import sys
 global sqft_mult, metro_mult, price_delta, sqft_delta, metro_delta
 
 
-def convertToNode(data):
+def convertToNode(data, schools, parks, metro, grocery):
     # TODO getData
     url = "https://www.stlouis-mo.gov/government/departments/sldc/real-estate" \
           "/lra-owned-property-search.cfm?detail=1&parcelId=" \
@@ -42,7 +42,7 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
     # take random sample of lot nodes and perform regression (can probably import something to do this for us
 
     # using this: https://towardsdatascience.com/simple-and-multiple-linear-regression-in-python-c928425168f9
-    random_sample_nodes = numpy.random.choice(lot_nodes, sample_size, replace=False)
+    random_sample_nodes = numpy.random.choice(lot_nodes.keys(), size=sample_size, replace=False)
     sqft_vector = map(lambda x: x.sqft, random_sample_nodes)
     price_vector = map(lambda x: x.price, random_sample_nodes)
     metro_vector = map(lambda x: x.distanceToMetro, random_sample_nodes)
@@ -60,6 +60,8 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
         for j in range(anchor_size_initial):
             for k in range(anchor_size_initial):
                 anchor_nodes[get_anchor_code(i, j, k)] = AnchorNode(get_anchor_code(i, j, k))
+                print(i+j+k)
+    print(x for x in anchor_nodes.keys())
 
     # connect anchor nodes (up, down, left, right, AND diagonal)
     for i in range(7):
@@ -167,12 +169,11 @@ def add_node_to_database(node, k, anchor_nodes):
         node.addNeighbor(n)
 
 
-def populate_database():
+def populate_database(k, warmup_size = 100, sample_size=100):
     global sqft_mult, metro_mult
     # important constants
     warmup_size = 100
     sample_size = 100
-    k = 5
 
     # node lists (anchor nodes need to be Random access, lot nodes theoretically don't - this is only used for
     # initialization
@@ -277,8 +278,25 @@ def checkBin(s):
 
 
 def main():
-    warmupFill()
-    populate_database()
+    # parameters:
+    anchor_nodes = {}
+    k = 5
+    lot_nodes = {}
+    numInitialNodes = 100
+
+    # populate lists:
+    metrolist = createSet.populateMetroList()
+    grocerylist = createSet.populateGroceryStoreList()
+    schoollist = createSet.populateSchoolList()
+    parkandplaygroundlist = createSet.populateParksandPlaygroundsList()
+
+    # TODO - populate all nodes from the json?
+    # for lot in lot_list:
+        # convertToNode(data, schoollist, parksandplaygroundlist, metrolist, grocerylist)
+
+
+    warmupFill(lot_nodes, anchor_nodes, k, lot_nodes, numInitialNodes)
+    populate_database(k)
     while True:
         get_search_parameters()
 
