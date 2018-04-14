@@ -17,7 +17,7 @@ def convertToNode(data, schools, parks, metro, grocery):
     soup = BeautifulSoup(page, "lxml")
     table = soup.find('table', class_= 'data vertical-table striped')
     info = dict()
-    #table_body = table.find('tbody')
+    # table_body = table.find('tbody')
     for row in table.findAll('tr'):
         cells = row.findAll('td')
         states = row.findAll('th')
@@ -57,7 +57,6 @@ def get_anchor_code(i, j, k):
 
 
 def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
-    # TODO: how do to a 3d array for anchor nodes in python? dimensions must all be expandable
     global metro_mult, sqft_mult, sqft_delta, metro_delta, price_delta
     anchor_size_initial = 7
 
@@ -128,14 +127,20 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
 
 
 def expand_anchor_grid(anchor_nodes, old_dimensions, new_dimensions):
-    # TODO - write this function
-
     for i in range(old_dimensions[0], new_dimensions[0]+1):
         for j in range(old_dimensions[1], new_dimensions[1]+1):
             for k in range(old_dimensions[2], new_dimensions[2] + 1):
-                anchor_nodes[get_anchor_code(i, j, k)] = AnchorNode(get_anchor_code(i, j, k))
+                anchorNode = AnchorNode(get_anchor_code(i, j, k))
+                for i_ in range(i - 1, i + 2):
+                    for j_ in range(j - 1, j + 2):
+                        for k_ in range(k - 1, k + 2):
+                            if i_ < (new_dimensions[0] and j_ < new_dimensions[1] and k_ < new_dimensions[2]
+                                     and i_ > 0 and j_ > 0 and k_ > 0 and i != i_ and j != j_ and k != k_):
+                                if not anchorNode.hasNeighbor(anchor_nodes[get_anchor_code(i_, j_, k_)]):
+                                    anchorNode.addNeighbor(anchor_nodes[get_anchor_code(i_, j_, k_)])
+                anchor_nodes[get_anchor_code(i, j, k)] = anchorNode
 
-    raise ValueError('This method has not been implemented yet')
+    return anchor_nodes
 
 
 def findAnchorNode(lot_node, anchor_nodes):
@@ -290,7 +295,6 @@ def get_search_parameters():
 
 
 # check that user argument is a valid integer
-# TODO - make this method more clever
 def checkInt(s):
     try:
         int(str(s))
