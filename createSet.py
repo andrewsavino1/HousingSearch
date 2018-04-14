@@ -44,7 +44,7 @@ metro_raw_coordinates = [(38.6279026, -90.1925076, '8th & Pine'),
 def populateMetroList():
     metro_stops = []
     for (x, y, name) in metro_raw_coordinates:
-        metro_stops.append(MetroStop(x, y, name))
+        metro_stops.append(MetroStop(y, x, name))
     return metro_stops
 
 
