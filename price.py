@@ -1,6 +1,6 @@
 import pandas as pd
 
-file_loc = "/Users/akshatgoel/Desktop/missing_price.csv"
+file_loc = "https://raw.githubusercontent.com/andrewsavino1/HousingSearch/master/Data/missing_price.csv"
 
 price_list = pd.read_csv(file_loc)
 
