@@ -53,6 +53,9 @@ class LotNode(Node):
         self.neighbors.append(node_tuple)
         self.numNeighbors += 1
 
+    def hasNeighbor(self, node):
+        return True if node in self.neighbors else False
+
     def setAnchor(self, anchor):
         self.anchor_node = anchor
 

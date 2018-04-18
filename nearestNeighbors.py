@@ -4,30 +4,52 @@ import numpy
 import statsmodels.api as sm
 import urllib.request
 from bs4 import BeautifulSoup
-import getopt
-import sys
-
+import os
+import geojson as geo
 global sqft_mult, metro_mult, price_delta, sqft_delta, metro_delta
 
-
 def convertToNode(data, schools, parks, metro, grocery):
-    # TODO getData
+
     url = "https://www.stlouis-mo.gov/government/departments/sldc/real-estate" \
           "/lra-owned-property-search.cfm?detail=1&parcelId=" \
-          + str(data['ParcelID'])
+          + str(data['properties']['ParcelID'])
     page = urllib.request.urlopen(url)
     soup = BeautifulSoup(page, "lxml")
-    table = soup.find('table', class_='data vertical-table striped')
+    table = soup.find('table', class_= 'data vertical-table striped')
     info = dict()
+    # table_body = table.find('tbody')
     for row in table.findAll('tr'):
         cells = row.findAll('td')
         states = row.findAll('th')
         info[states[0].find(text=True)] = cells[0].find(text=True)
 
+    coords = data['geometry']['coordinates']
+
+    loc = Location(coords[0], coords[1])
+
+    # cosine(38.63*pi/180) * 69.172
+    metroDist = findClosestLocation(loc, metro) * 69.172
+    schoolDist = findClosestLocation(loc, schools) * 69.172
+    groceryDist = findClosestLocation(loc, grocery) * 69.172
+    parkDist = findClosestLocation(loc, parks) * 69.172
+
     node = LotNode(int(info['Parcel ID']), info['Property Address'],
                     info['Value (Standard or Appraised)'],
-                    info['Lot Square Feet'], data['centerX'], data['centerY'])
+                    info['Lot Square Feet'], loc.x, loc.y)
+
+    node.setKidFriendly(schoolDist, parkDist)
+    node.setMetroDistsance(metroDist)
+    node.setNearGrocery(groceryDist)
+    print(node)
+
     return node
+
+
+def findClosestLocation(house, set):
+    min_dist = 99999999
+    for loc in set:
+        min_dist = min(min_dist, loc.getDistance(house))
+    return min_dist
 
 
 def get_anchor_code(i, j, k):
@@ -35,7 +57,6 @@ def get_anchor_code(i, j, k):
 
 
 def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
-    # TODO: how do to a 3d array for anchor nodes in python? dimensions must all be expandable
     global metro_mult, sqft_mult, sqft_delta, metro_delta, price_delta
     anchor_size_initial = 7
 
@@ -46,11 +67,11 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
     sqft_vector = map(lambda x: x.sqft, random_sample_nodes)
     price_vector = map(lambda x: x.price, random_sample_nodes)
     metro_vector = map(lambda x: x.distanceToMetro, random_sample_nodes)
-    model = sm.OLS(price_vector, metro_vector).fit()
-    predictions = model.predict(metro_vector)
-    # TODO - make this work -> and populate these values:
-    metro_mult = 1
-    sqft_mult = 1
+    model_metro = sm.OLS(price_vector, metro_vector).fit()
+    model_sqft = sm.OLS(price_vector, sqft_vector).fit()
+
+    metro_mult = model_metro.predict(metro_vector)
+    sqft_mult = model_sqft.predict(sqft_vector)
 
     # populate anchor nodes
     price_delta = max(price_vector) / anchor_size_initial
@@ -106,14 +127,20 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=100):
 
 
 def expand_anchor_grid(anchor_nodes, old_dimensions, new_dimensions):
-    # TODO - write this function
-
     for i in range(old_dimensions[0], new_dimensions[0]+1):
         for j in range(old_dimensions[1], new_dimensions[1]+1):
             for k in range(old_dimensions[2], new_dimensions[2] + 1):
-                anchor_nodes[get_anchor_code(i, j, k)] = AnchorNode(get_anchor_code(i, j, k))
+                anchorNode = AnchorNode(get_anchor_code(i, j, k))
+                for i_ in range(i - 1, i + 2):
+                    for j_ in range(j - 1, j + 2):
+                        for k_ in range(k - 1, k + 2):
+                            if i_ < (new_dimensions[0] and j_ < new_dimensions[1] and k_ < new_dimensions[2]
+                                     and i_ > 0 and j_ > 0 and k_ > 0 and i != i_ and j != j_ and k != k_):
+                                if not anchorNode.hasNeighbor(anchor_nodes[get_anchor_code(i_, j_, k_)]):
+                                    anchorNode.addNeighbor(anchor_nodes[get_anchor_code(i_, j_, k_)])
+                anchor_nodes[get_anchor_code(i, j, k)] = anchorNode
 
-    raise ValueError('This method has not been implemented yet')
+    return anchor_nodes
 
 
 def findAnchorNode(lot_node, anchor_nodes):
@@ -193,14 +220,15 @@ def populate_database(k, warmup_size = 100, sample_size=100):
     parks_and_playgrounds = createSet.populateParksandPlaygroundsList()
 
     # call convertToNode on every row of the data file
-    file = None  # TODO - whatever stores the raw data
-    for dataline in file:
-        node = convertToNode(dataline)
+    callstr = os.getcwd() + '\\Data\\lra.geojson'
+    file = geo.load(open(callstr))
+    for dataline in file['features']:
+        node = convertToNode(dataline, schools, parks_and_playgrounds, metro_stops, grocery_stores)
         lot_nodes.append(node)
 
     # run warmupFill to start populating the database (split the list into 2 sublists, warm-up and all else (or just
     # pick an index to be the cutoff
-    sqft_mult, metro_mult = warmupFill(lot_nodes, anchor_nodes, k, warmup_size, sample_size)
+    sqft_mult, metro_mult = warmupFill(lot_nodes[::warmup_size], anchor_nodes, k, warmup_size, sample_size)
 
     # do fill up everything else
     for node in lot_nodes[warmup_size::]:
@@ -248,19 +276,25 @@ def get_search_parameters():
         print("Error. Entered value must be either 'Y' or 'N'.")
         family_input = input("Do you require a family-friendly property? Y/N: ")
 
-    price_min = int(str(price_min_input))
-    price_max = int(str(price_max_input))
-    metro_dist = int(str(metro_dist_input))
-    acreage_min = int(str(acreage_min_input))
+    price_min = 0 if price_min_input == 'N' else int(str(price_min_input))
+    price_max = 99999999 if price_max_input == 'N' else int(str(price_max_input))
+    metro_dist = 99999999 if metro_dist_input == 'N' else int(str(metro_dist_input))
+    acreage_min = 0 if acreage_min_input == 'N' else int(str(acreage_min_input))
 
     parking = True if str(parking_input) == "Y" else False
     grocery = True if str(grocery_input) == "Y" else False
     family = True if str(family_input) == "Y" else False
     property = True if str(property_input) == "Y" else False
 
+    dummy_node = LotNode('', price_min, acreage_min, 0, 0)
+    dummy_node.setNearGrocery(grocery)
+    dummy_node.setMetroDistsance(metro_dist)
+    dummy_node.setKidFriendly(family)
+
+    return dummy_node
+
 
 # check that user argument is a valid integer
-# TODO - make this method more clever
 def checkInt(s):
     try:
         int(str(s))
@@ -282,20 +316,7 @@ def main():
     anchor_nodes = {}
     k = 5
     lot_nodes = {}
-    numInitialNodes = 100
 
-    # populate lists:
-    metrolist = createSet.populateMetroList()
-    grocerylist = createSet.populateGroceryStoreList()
-    schoollist = createSet.populateSchoolList()
-    parkandplaygroundlist = createSet.populateParksandPlaygroundsList()
-
-    # TODO - populate all nodes from the json?
-    # for lot in lot_list:
-        # convertToNode(data, schoollist, parksandplaygroundlist, metrolist, grocerylist)
-
-
-    warmupFill(lot_nodes, anchor_nodes, k, lot_nodes, numInitialNodes)
     populate_database(k)
     while True:
         get_search_parameters()
