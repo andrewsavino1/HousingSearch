@@ -6,43 +6,87 @@ import urllib.request
 from bs4 import BeautifulSoup
 import os
 import geojson as geo
+import pandas as pd
+import string
+import re
+import csv
 global sqft_mult, metro_mult, price_delta, sqft_delta, metro_delta
 
-def convertToNode(data, schools, parks, metro, grocery):
+def print_to_csv(nodes):
+    with open (os.getcwd()+'housingData.csv', 'wb') as csvfile:
+        fieldnames = ['parcel_id', 'address', 'price', 'sqft', 'metro_dist', 'grocery', 'kid_friendly', 'status', 'zipcode']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-    url = "https://www.stlouis-mo.gov/government/departments/sldc/real-estate" \
-          "/lra-owned-property-search.cfm?detail=1&parcelId=" \
-          + str(data['properties']['ParcelID'])
-    page = urllib.request.urlopen(url)
-    soup = BeautifulSoup(page, "lxml")
-    table = soup.find('table', class_= 'data vertical-table striped')
-    info = dict()
-    # table_body = table.find('tbody')
-    for row in table.findAll('tr'):
-        cells = row.findAll('td')
-        states = row.findAll('th')
-        info[states[0].find(text=True)] = cells[0].find(text=True)
+        writer.writeheader()
+        for node in nodes:
+            kf = 'Y' if node.kidFriendly else 'N'
+            gro = 'Y' if node.nearGrocery else 'N'
+            stat = 'Vacant' if node.vacant else 'Built'
+            writer.writerow({
+                'parcel_id': node.id,
+                'address': node.address,
+                'price': node.price,
+                'sqft': node.sqft,
+                'metro_dist': node.distanceToMetro,
+                'kid_friendly': kf,
+                'grocery': gro,
+                'status': stat,
+                'zipcode': node.zipcode
+            })
 
-    coords = data['geometry']['coordinates']
+def convertToNode(data, schools, parks, metro, grocery, price_dict):
+    try:
+        url = "https://www.stlouis-mo.gov/government/departments/sldc/real-estate" \
+              "/lra-owned-property-search.cfm?detail=1&parcelId=" \
+              + str(data['properties']['ParcelID'])
+        page = urllib.request.urlopen(url)
+        soup = BeautifulSoup(page, "lxml")
+        table = soup.find('table', class_='data vertical-table striped')
+        info = dict()
+        # table_body = table.find('tbody')
+        for row in table.findAll('tr'):
+            cells = row.findAll('td')
+            states = row.findAll('th')
+            info[states[0].find(text=True)] = cells[0].find(text=True)
 
-    loc = Location(coords[0], coords[1])
+        coords = data['geometry']['coordinates']
 
-    # cosine(38.63*pi/180) * 69.172
-    metroDist = findClosestLocation(loc, metro) * 69.172
-    schoolDist = findClosestLocation(loc, schools) * 69.172
-    groceryDist = findClosestLocation(loc, grocery) * 69.172
-    parkDist = findClosestLocation(loc, parks) * 69.172
+        loc = Location(coords[0], coords[1])
 
-    node = LotNode(int(info['Parcel ID']), info['Property Address'],
-                    info['Value (Standard or Appraised)'],
-                    info['Lot Square Feet'], loc.x, loc.y)
+        # cosine(38.63*pi/180) * 69.172
+        metroDist = findClosestLocation(loc, metro) * 69.172
+        schoolDist = findClosestLocation(loc, schools) * 69.172
+        groceryDist = findClosestLocation(loc, grocery) * 69.172
+        parkDist = findClosestLocation(loc, parks) * 69.172
 
-    node.setKidFriendly(schoolDist, parkDist)
-    node.setMetroDistsance(metroDist)
-    node.setNearGrocery(groceryDist)
-    print(node)
+        price = info['Value (Standard or Appraised)']
+        try:
+            price = int(price.replace('$', ''))
+        except:
+            neighborhood = info["Neighborhood"]
+            line = '123456789()\n'
+            for char in line:
+                neighborhood = neighborhood.replace(char, '')
+            try:
+                price = price_dict[neighborhood.rstrip()]
+            except:
+                price = 1000
+            if price == 0:
+                price = 1000
 
-    return node
+        node = LotNode(int(info['Parcel ID']), info['Property Address'],
+                       price,
+                       info['Lot Square Feet'], loc.x, loc.y)
+
+        node.setKidFriendly(schoolDist, parkDist)
+        node.setMetroDistsance(metroDist)
+        node.setNearGrocery(groceryDist)
+        print(node)
+        return node
+    except:
+        print(data['properties']['fullAddress'])
+        print(url+'\n')
+
 
 
 def findClosestLocation(house, set):
@@ -196,7 +240,7 @@ def add_node_to_database(node, k, anchor_nodes):
         node.addNeighbor(n)
 
 
-def populate_database(k, warmup_size = 100, sample_size=100):
+def populate_database(k, lot_nodes, warmup_size = 100, sample_size=100):
     global sqft_mult, metro_mult
     # important constants
     warmup_size = 100
@@ -204,7 +248,6 @@ def populate_database(k, warmup_size = 100, sample_size=100):
 
     # node lists (anchor nodes need to be Random access, lot nodes theoretically don't - this is only used for
     # initialization
-    lot_nodes = []
     anchor_nodes = {}
 
     # create set of grocery stores
@@ -219,12 +262,22 @@ def populate_database(k, warmup_size = 100, sample_size=100):
     # create set of parks
     parks_and_playgrounds = createSet.populateParksandPlaygroundsList()
 
+    file_loc = "https://raw.githubusercontent.com/andrewsavino1/HousingSearch/master/Data/missing_price.csv"
+
+    price_list = pd.read_csv(file_loc)
+
+    price_dict = dict(zip(price_list.Neighborhood, price_list.Price))
+    print(price_dict)
+
     # call convertToNode on every row of the data file
     callstr = os.getcwd() + '\\Data\\lra.geojson'
     file = geo.load(open(callstr))
+    ctr = 0
     for dataline in file['features']:
-        node = convertToNode(dataline, schools, parks_and_playgrounds, metro_stops, grocery_stores)
+        node = convertToNode(dataline, schools, parks_and_playgrounds, metro_stops, grocery_stores, price_dict)
         lot_nodes.append(node)
+        if ctr > 100:
+            break
 
     # run warmupFill to start populating the database (split the list into 2 sublists, warm-up and all else (or just
     # pick an index to be the cutoff
@@ -313,11 +366,11 @@ def checkBin(s):
 
 def main():
     # parameters:
-    anchor_nodes = {}
     k = 5
-    lot_nodes = {}
+    lot_nodes = []
 
-    populate_database(k)
+    populate_database(k, lot_nodes)
+    print_to_csv(lot_nodes)
     while True:
         get_search_parameters()
 
