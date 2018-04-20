@@ -77,7 +77,7 @@ class LotNode(Node):
     def matches_conditions(self, argv):
         ctr = 0
         ctr += 1 if self.price < argv['minPrice'] or self.price > argv['maxPrice'] else 0
-        ctr += 1 if self.sqft < argv['minSqft'] or self.sqft > argv['maxSqft'] else 0
+        ctr += 1 if self.sqft < argv['minSqft'] else 0
         ctr += 1 if self.distanceToMetro > argv['distanceToMetro'] else 0
         ctr += 1 if self.kidFriendly != argv['kidFriendly'] else 0
         ctr += 1 if self.nearGrocery != argv['grocery'] else 0

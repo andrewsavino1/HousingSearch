@@ -233,10 +233,12 @@ def findAnchorNode(lot_node, anchor_nodes):
 
 
 
-def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, close_matches_list, neighbor_counter):
+def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, close_matches_list, neighbor_counter, argv):
     # TODO - neighbor_counter needs to be updated simultaneoulsy on all branches - should be by ref, not value
     start = time.time()
     global sqft_mult, metro_mult
+
+    # TODO - how do we handle when we are finding nearest neighbors for searching vs for populating? separate method?
 
     # assert starting_node.anchor_node  # verify the node has an anchor node
 
@@ -376,7 +378,7 @@ def get_search_parameters():
     property_input = input("Do you wish to search over empty lots? Y/N: ")
     while not checkBin(property_input):
         print("Error. Entered value must be either 'Y' or 'N'.")
-        family_input = input("Do you require a family-friendly property? Y/N: ")
+        family_input = input("Do you ish to search over empty lots? Y/N:  ")
 
     price_min = 0 if price_min_input == 'N' else int(str(price_min_input))
     price_max = 99999999 if price_max_input == 'N' else int(str(price_max_input))
@@ -393,7 +395,17 @@ def get_search_parameters():
     dummy_node.setMetroDistsance(metro_dist)
     dummy_node.setKidFriendly(family)
 
-    return dummy_node, price_max, acreage_min, metro_dist
+    argv = {
+        'minPrice': price_min,
+        'maxPrice': price_max,
+        'vacant': property,
+        'minSqft': acreage_min,
+        'kidFriendly': family,
+        'distanceToMetro': metro_dist,
+        'grocery': grocery
+    }
+
+    return dummy_node, argv
 
 
 # check that user argument is a valid integer
@@ -422,12 +434,15 @@ def main():
 
     populate_database(k, lot_nodes, anchor_nodes)
     print_to_csv(lot_nodes)
-    dummy_node, price_max, acreage_min, metro_dist = get_search_parameters()
+
 
     while True:
         neighbor_list = []
+        close_matches = []
         neighbor_counter = 0
-        neighbors = find_nearest_neighbors(findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list, neighbor_counter)
+
+        dummy_node, argv = get_search_parameters()
+        neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list, close_matches, neighbor_counter, argv)
         neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k)
         try:
             assert set(neighbors) == set(neighbors_2)
