@@ -17,6 +17,9 @@ class Node:
     def addNeighbor(self, node):
         self.neighbors.append((node, 0))
 
+    def hasNeighbor(self, node):
+        return True if node in self.neighbors else False
+
 
 class LotNode(Node):
     def __init__(self, id_, address, price, sqft, centerX, centerY, hasParkingSpot=False,
@@ -52,9 +55,6 @@ class LotNode(Node):
     def addNeighbor(self, node_tuple):
         self.neighbors.append(node_tuple)
         self.numNeighbors += 1
-
-    def hasNeighbor(self, node):
-        return True if node in self.neighbors else False
 
     def setAnchor(self, anchor):
         self.anchor_node = anchor

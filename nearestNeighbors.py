@@ -11,6 +11,8 @@ import csv
 global sqft_mult, metro_mult, price_delta, sqft_delta, metro_delta
 global grid_dim
 from sklearn.linear_model import LinearRegression
+import time
+from iterativeSearch import *
 
 def print_to_csv(nodes):
     with open (os.getcwd()+'housingData.csv', 'wb') as csvfile:
@@ -233,8 +235,10 @@ def findAnchorNode(lot_node, anchor_nodes):
 
 def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter):
     # TODO - neighbor_counter needs to be updated simultaneoulsy on all branches - should be by ref, not value
+    start = time.time()
     global sqft_mult, metro_mult
-    assert starting_node.anchor_node  # verify the node has an anchor node
+
+    # assert starting_node.anchor_node  # verify the node has an anchor node
 
     if neighbor_counter[0] < k:
         possible_new_neighbors = []
@@ -262,6 +266,10 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
         if len(neighbor_list) > k:
             neighbor_list = neighbor_list[0::k]
 
+        end = time.time()
+
+        print('Time elapsed in fancy search: ' + str(end - start) + 's')
+
         return neighbor_list
 
 
@@ -274,7 +282,7 @@ def add_node_to_database(node, k, anchor_nodes):
         node.addNeighbor(n)
 
 
-def populate_database(k, lot_nodes, warmup_size = 10, sample_size=10):
+def populate_database(k, lot_nodes, anchor_nodes, warmup_size = 10, sample_size=10):
     global sqft_mult, metro_mult
     # important constants
     warmup_size = 10
@@ -282,7 +290,6 @@ def populate_database(k, lot_nodes, warmup_size = 10, sample_size=10):
 
     # node lists (anchor nodes need to be Random access, lot nodes theoretically don't - this is only used for
     # initialization
-    anchor_nodes = {}
 
     # create set of grocery stores
     grocery_stores = createSet.populateGroceryStoreList()
@@ -316,7 +323,7 @@ def populate_database(k, lot_nodes, warmup_size = 10, sample_size=10):
     # run warmupFill to start populating the database (split the list into 2 sublists, warm-up and all else (or just
     # pick an index to be the cutoff
     print(len(lot_nodes))
-    sqft_mult, metro_mult = warmupFill(lot_nodes[:warmup_size], anchor_nodes, k, warmup_size, sample_size)
+    sqft_mult, metro_mult= warmupFill(lot_nodes[:warmup_size], anchor_nodes, k, warmup_size, sample_size)
 
     # do fill up everything else
     for node in lot_nodes[warmup_size:]:
@@ -379,7 +386,7 @@ def get_search_parameters():
     dummy_node.setMetroDistsance(metro_dist)
     dummy_node.setKidFriendly(family)
 
-    return dummy_node
+    return dummy_node, price_max, acreage_min, metro_dist
 
 
 # check that user argument is a valid integer
@@ -392,6 +399,7 @@ def checkInt(s):
             return True
         return False
 
+
 # check that user argument is valid binary value
 def checkBin(s):
     if str(s) == 'N' or str(s) == 'Y':
@@ -403,11 +411,24 @@ def main():
     # parameters:
     k = 5
     lot_nodes = []
+    anchor_nodes = {}
 
-    populate_database(k, lot_nodes)
+    populate_database(k, lot_nodes, anchor_nodes)
     print_to_csv(lot_nodes)
-    while True:
-        get_search_parameters()
+    dummy_node, price_max, acreage_min, metro_dist = get_search_parameters()
 
+    while True:
+        neighbor_list = []
+        neighbor_counter = 0
+        neighbors = find_nearest_neighbors(findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list, neighbor_counter)
+        neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k)
+        try:
+            assert set(neighbors) == set(neighbors_2)
+        except:
+            print('Error: The lists returned by the iterative search and the nearest-neighbors search')
+            print('Nearest neighbor search results:')
+            [print(n) for n in neighbors]
+            print('\nIterative search results:')
+            [print(n) for n in neighbors_2]
 
 if __name__ == '__main__': main()
