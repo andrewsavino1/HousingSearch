@@ -75,9 +75,14 @@ class LotNode(Node):
             self.kidFriendly = True
 
     def matches_conditions(self, argv):
-        # TODO - argv is a list of the conditions the search requires (including continuous variables)
-        # return the number of conditions matched (so easier to do "nar"
-        return 0
+        ctr = 0
+        ctr += 1 if self.price < argv['minPrice'] or self.price > argv['maxPrice'] else 0
+        ctr += 1 if self.sqft < argv['minSqft'] or self.sqft > argv['maxSqft'] else 0
+        ctr += 1 if self.distanceToMetro > argv['distanceToMetro'] else 0
+        ctr += 1 if self.kidFriendly != argv['kidFriendly'] else 0
+        ctr += 1 if self.nearGrocery != argv['grocery'] else 0
+        ctr += 2 if self.vacant != argv['vacant'] else 0  # if it's vacant and shouldn't be then it's not a near match
+        return ctr
 
 
 class AnchorNode(Node):

@@ -158,7 +158,8 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
 
     for node in lot_nodes:
         # assign it to its nearest anchor node
-        node.addNeighbor(findAnchorNode(node, anchor_nodes))
+        node.setAnchor(findAnchorNode(node, anchor_nodes))
+        findAnchorNode(node, anchor_nodes).addNeighbor(node)
 
     # calculate distances between nodes (note - let's not do it redundantly.  If we know a->b, we know b->a.
     # i.e. we should fill out an upper-triangular distance matrix and get the smallest (non-zero/None) distances
@@ -182,7 +183,6 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
         idx = numpy.argpartition(A[i], k)  # get indexes of smallest values (closest distances
         for n in idx:
             lot_nodes[i].addNeighbor(lot_nodes[n])
-
     return sqft_mult, metro_mult
 
 
@@ -233,7 +233,7 @@ def findAnchorNode(lot_node, anchor_nodes):
 
 
 
-def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter):
+def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, close_matches_list, neighbor_counter):
     # TODO - neighbor_counter needs to be updated simultaneoulsy on all branches - should be by ref, not value
     start = time.time()
     global sqft_mult, metro_mult
@@ -244,23 +244,28 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
         possible_new_neighbors = []
 
         # first, add the nodes at this level of recursion
-        for connected_node_tuple in searching_node.neighbors[0].neighbors:
-            lot_tuple = connected_node_tuple[0], starting_node.getDistance(connected_node_tuple[0], sqft_mult,
-                                                                           metro_mult)
-            if lot_tuple not in searching_node.neighbors:
-                if connected_node_tuple[0].getDistance(starting_node, sqft_mult, metro_mult) \
-                        < searching_node.neighbors[-1][1]:
-                    # replace furthest neighbor of the searching node with this new node, then sort so order maintained
-                    searching_node.neighbors[-1] = (starting_node, connected_node_tuple[0].getDistance(starting_node,
-                                                                                                       sqft_mult,
-                                                                                                       metro_mult))
-                    searching_node.sort(key=(lambda x: x[1]))
+        # [print(n) for n in searching_node.neighbors]
+        # print(searching_node.neighbors[0][0].neighbors)
+        for connected_node_tuple in searching_node.neighbors[0][0].neighbors:
+            if connected_node_tuple[0] is LotNode:
+                lot_tuple = connected_node_tuple[0], starting_node.getDistance(connected_node_tuple[0], sqft_mult,
+                                                                               metro_mult)
+                if lot_tuple not in searching_node.neighbors:
+                    if connected_node_tuple[0].getDistance(starting_node, sqft_mult, metro_mult) \
+                            < searching_node.neighbors[-1][1]:
+                        # replace furthest neighbor of the searching node with this new node, then sort so order maintained
+                        searching_node.neighbors[-1] = (starting_node, connected_node_tuple[0].getDistance(starting_node,
+                                                                                                           sqft_mult,
+                                                                                                           metro_mult))
+                        searching_node.sort(key=(lambda x: x[1]))
 
-                if lot_tuple not in possible_new_neighbors:
-                    possible_new_neighbors.append(lot_tuple)
-                    neighbor_counter[0] += 1
+                    if lot_tuple not in possible_new_neighbors:
+                        possible_new_neighbors.append(lot_tuple)
+                        neighbor_counter[0] += 1
         for next_node in possible_new_neighbors:
             find_nearest_neighbors(starting_node, next_node, k, neighbor_list, neighbor_counter)
+
+        print(possible_new_neighbors)
 
         (neighbor_list.append(possible_new_neighbors)).sort(key=(lambda x: x[1]))
         if len(neighbor_list) > k:
@@ -274,10 +279,12 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
 
 
 def add_node_to_database(node, k, anchor_nodes):
-    node.addNeighbor(findAnchorNode(node, anchor_nodes))  # add the anchor node
+    #node.addNeighbor(findAnchorNode(node, anchor_nodes))  # add the anchor node
+    node.setAnchor(findAnchorNode(node, anchor_nodes))
+    findAnchorNode(node, anchor_nodes).addNeighbor(node)
 
     # add the neighbor nodes
-    k_nearest_neighbors = find_nearest_neighbors(node, node, k, [], [0])
+    k_nearest_neighbors = find_nearest_neighbors(node, findAnchorNode(node, anchor_nodes), k, [], [0])
     for n in k_nearest_neighbors:
         node.addNeighbor(n)
 
