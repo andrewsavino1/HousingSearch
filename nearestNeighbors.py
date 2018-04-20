@@ -112,21 +112,22 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
     sqft_vector = list(map(lambda x: x.sqft, random_sample_nodes))
     price_vector = list(map(lambda x: x.price, random_sample_nodes))
     metro_vector = list(map(lambda x: x.distanceToMetro, random_sample_nodes))
-    print(len(sqft_vector))
-    print(len(price_vector))
-    print(len(metro_vector))
-    model_metro = LinearRegression()#sm.OLS(price_vector, metro_vector).fit()
-    model_sqft = LinearRegression()#m.OLS(price_vector, sqft_vector).fit()
-    model_metro.fit(price_vector, metro_vector)
-    model_sqft.fit(price_vector, sqft_vector)
+    X = numpy.array([sqft_vector, metro_vector]).transpose()
 
-    metro_mult = model_metro.coef_ #model_metro.predict(metro_vector)
-    sqft_mult = model_sqft.coef_ #model_sqft.predict(sqft_vector)
+    regression = LinearRegression()#sm.OLS(price_vector, metro_vector).fit()
+    print(X)
+
+    regression.fit(X, price_vector)
+
+    #model_sqft = LinearRegression()#m.OLS(price_vector, sqft_vector).fit()
+    #model_metro.fit(price_vector, metro_vector)
+    #model_sqft.fit(price_vector, sqft_vector)
+
+    metro_mult = regression.coef_[0]
+    sqft_mult = regression.coef_[1]
 
     print(metro_mult)
     print(sqft_mult)
-
-    exit(2)
 
     # populate anchor nodes
     price_delta = max(price_vector) / anchor_size_initial
