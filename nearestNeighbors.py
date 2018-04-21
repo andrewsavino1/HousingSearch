@@ -232,8 +232,7 @@ def findAnchorNode(lot_node, anchor_nodes):
         return anchor_nodes[get_anchor_code(price_coord, sqft_coord, 0)]
 
 
-
-def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, close_matches_list, neighbor_counter, argv):
+def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter, close_matches_list=[], argv={}):
     # TODO - neighbor_counter needs to be updated simultaneoulsy on all branches - should be by ref, not value
     start = time.time()
     global sqft_mult, metro_mult
@@ -253,17 +252,32 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, clos
                 lot_tuple = connected_node_tuple[0], starting_node.getDistance(connected_node_tuple[0], sqft_mult,
                                                                                metro_mult)
                 if lot_tuple not in searching_node.neighbors:
-                    if connected_node_tuple[0].getDistance(starting_node, sqft_mult, metro_mult) \
-                            < searching_node.neighbors[-1][1]:
-                        # replace furthest neighbor of the searching node with this new node, then sort so order maintained
-                        searching_node.neighbors[-1] = (starting_node, connected_node_tuple[0].getDistance(starting_node,
-                                                                                                           sqft_mult,
-                                                                                                           metro_mult))
-                        searching_node.sort(key=(lambda x: x[1]))
+                    if argv == {}:
 
-                    if lot_tuple not in possible_new_neighbors:
-                        possible_new_neighbors.append(lot_tuple)
-                        neighbor_counter[0] += 1
+                        if connected_node_tuple[0].getDistance(starting_node, sqft_mult, metro_mult) \
+                                < searching_node.neighbors[-1][1]:
+
+                            # replace furthest neighbor of the searching node with this new node, then sort so order maintained
+
+                            searching_node.neighbors[-1] = (starting_node, connected_node_tuple[0].getDistance(starting_node,
+                                                                                                               sqft_mult,
+                                                                                                             metro_mult))
+                            searching_node.sort(key=(lambda x: x[1]))
+
+                        if lot_tuple not in possible_new_neighbors:
+                            possible_new_neighbors.append(lot_tuple)
+                            neighbor_counter[0] += 1
+
+                    else:
+                        if connected_node_tuple[0].matches_conditions(argv) == 0:
+                            if lot_tuple not in possible_new_neighbors:
+                                possible_new_neighbors.append(lot_tuple)
+                                neighbor_counter[0] += 1
+
+                        elif connected_node_tuple[0].matches_conditions(argv) == 1:
+                            if lot_tuple not in close_matches_list:
+                                close_matches_list.append(lot_tuple)
+
         for next_node in possible_new_neighbors:
             find_nearest_neighbors(starting_node, next_node, k, neighbor_list, neighbor_counter)
 
@@ -442,12 +456,13 @@ def main():
         neighbor_counter = 0
 
         dummy_node, argv = get_search_parameters()
-        neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list, close_matches, neighbor_counter, argv)
+        neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list, neighbor_counter, close_matches, argv)
         neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k)
         try:
             assert set(neighbors) == set(neighbors_2)
+            print('Success! The lists returned by the iterative search and the nearest-neighbors search are identical.')
         except:
-            print('Error: The lists returned by the iterative search and the nearest-neighbors search')
+            print('Error: The lists returned by the iterative search and the nearest-neighbors search are different.')
             print('Nearest neighbor search results:')
             [print(n) for n in neighbors]
             print('\nIterative search results:')
