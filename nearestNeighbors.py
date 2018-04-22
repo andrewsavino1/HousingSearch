@@ -16,7 +16,7 @@ from iterativeSearch import *
 
 
 def print_to_csv(nodes):
-    with open(os.getcwd() + 'housingData.csv', 'w') as csvfile:
+    with open('housingData.csv', 'w', newline='') as csvfile:
         fieldnames = ['parcel_id', 'address', 'price', 'sqft', 'metro_dist', 'grocery', 'kid_friendly', 'status',
                       'zipcode']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -37,12 +37,26 @@ def print_to_csv(nodes):
                 'status': stat
                 # 'zipcode': node.zipcode
             })
+        print("wrote to csv at ", os.getcwd())
 
 
 def read_from_csv(file, nodes_list):
     with open(os.getcwd() + 'housingData.csv') as csvfile:
-        reader = csv.reader(csvfile, )
-        # TODO finish this
+        reader = csv.reader(csvfile, delimiter = ' ')
+        for row in reader:
+            id = row[0]
+            address = row[1]
+            price = row[2]
+            sqft = row[3]
+            metro_dist = row[4]
+            kf = True if row[5] is 'Y' else False
+            groc = True if row[6] is 'Y' else False
+            stat = True if row[7] is 'Y' else False
+            node = LotNode(id, address, price, sqft,0,0,vacant=stat)
+            node.setKidFriendly_known(kf)
+            node.setNearGrocery_known(groc)
+            node.setMetroDistance(metro_dist)
+            nodes_list.append(node)
 
 
 def convertToNode(data, schools, parks, metro, grocery, price_dict):
@@ -90,7 +104,7 @@ def convertToNode(data, schools, parks, metro, grocery, price_dict):
                        int(info['Lot Square Feet']), loc.x, loc.y)
 
         node.setKidFriendly(schoolDist, parkDist)
-        node.setMetroDistsance(metroDist)
+        node.setMetroDistance(metroDist)
         node.setNearGrocery(groceryDist)
         print(node)
 
@@ -251,11 +265,9 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
     start = time.time()
     global sqft_mult, metro_mult
 
-    # TODO - how do we handle when we are finding nearest neighbors for searching vs for populating? separate method?
-
     # assert starting_node.anchor_node  # verify the node has an anchor node
 
-    if neighbor_counter[0] < k:
+    if neighbor_counter < k:
         possible_new_neighbors = []
 
         # first, add the nodes at this level of recursion
@@ -330,7 +342,7 @@ def add_node_to_database(node, k, anchor_nodes):
     findAnchorNode(node, anchor_nodes).addNeighbor(node)
 
     # add the neighbor nodes
-    k_nearest_neighbors = find_nearest_neighbors(node, findAnchorNode(node, anchor_nodes), k, [], [0])
+    k_nearest_neighbors = find_nearest_neighbors(node, findAnchorNode(node, anchor_nodes), k, [], 0)
     for n in k_nearest_neighbors:
         node.addNeighbor(n)
 
@@ -402,10 +414,10 @@ def get_search_parameters():
         print("Error. Distance maximum must be a integer value.")
         price_min_input = input("Enter a maximum acceptable distance to a metro stop (or 'N' if not applicable):")
 
-    acreage_min_input = input("Enter a minimum acceptable acreage (or 'N' if not applicable): ")
+    acreage_min_input = input("Enter a minimum acceptable square footage (or 'N' if not applicable): ")
     while not checkInt(acreage_min_input):
-        print("Error. Acreage minimum must be an integer value.")
-        acreage_min_input = input("Enter a minimum acceptable acreage (or 'N' if not applicable): ")
+        print("Error. Square footage minimum must be an integer value.")
+        acreage_min_input = input("Enter a minimum acceptable square footage (or 'N' if not applicable): ")
 
     parking_input = input("Do you require a parking spot? Y/N: ")
     while not checkBin(parking_input):
@@ -434,13 +446,13 @@ def get_search_parameters():
 
     parking = True if str(parking_input) == "Y" else False
     grocery = True if str(grocery_input) == "Y" else False
-    family = True if str(family_input) == "Y" else False
+    family = 0 if str(family_input) == "Y" else 99999
     property = True if str(property_input) == "Y" else False
 
-    dummy_node = LotNode('', price_min, acreage_min, 0, 0)
+    dummy_node = LotNode(0, '', price_min, acreage_min, 0, 0)
     dummy_node.setNearGrocery(grocery)
-    dummy_node.setMetroDistsance(metro_dist)
-    dummy_node.setKidFriendly(family)
+    dummy_node.setMetroDistance(metro_dist)
+    dummy_node.setKidFriendly(family, family)
 
     argv = {
         'minPrice': price_min,
@@ -488,18 +500,20 @@ def main():
         neighbor_counter = 0
 
         dummy_node, argv = get_search_parameters()
+        dummy_node.setAnchor(findAnchorNode(dummy_node, anchor_nodes))
         neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list,
                                            neighbor_counter, close_matches, argv)
-        neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k)
+        neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k, argv)
         try:
             assert set(neighbors) == set(neighbors_2)
             print('Success! The lists returned by the iterative search and the nearest-neighbors search are identical.')
+            [print(n[0]) for n in neighbors]
         except:
             print('Error: The lists returned by the iterative search and the nearest-neighbors search are different.')
             print('Nearest neighbor search results:')
-            [print(n) for n in neighbors]
+            [print(n[0]) for n in neighbors]
             print('\nIterative search results:')
-            [print(n) for n in neighbors_2]
+            [print(n[0]) for n in neighbors_2]
 
 
 if __name__ == '__main__': main()
