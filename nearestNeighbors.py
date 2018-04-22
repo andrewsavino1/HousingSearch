@@ -1,7 +1,6 @@
 from node import *
 import createSet
 import numpy
-import statsmodels.api as sm
 import urllib.request
 from bs4 import BeautifulSoup
 import os
@@ -233,7 +232,7 @@ def findAnchorNode(lot_node, anchor_nodes):
 
 
 def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter, close_matches_list=[], argv={}):
-    # TODO - neighbor_counter needs to be updated simultaneoulsy on all branches - should be by ref, not value
+    # TODO - neighbor_counter needs to be updated simultaneously on all branches - should be by ref, not value
     start = time.time()
     global sqft_mult, metro_mult
 
@@ -339,7 +338,8 @@ def populate_database(k, lot_nodes, anchor_nodes, warmup_size = 10, sample_size=
 
     for dataline in file['features']:
         node = convertToNode(dataline, schools, parks_and_playgrounds, metro_stops, grocery_stores, price_dict)
-        lot_nodes.append(node)
+        if node is not None:
+            lot_nodes.append(node)
         if len(lot_nodes) > 20:
             break
 
