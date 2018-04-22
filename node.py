@@ -48,6 +48,7 @@ class LotNode(Node):
         # Anchor node
         self.anchor_node = None
 
+
     def __str__(self):
         return (self.address + '\n\tPrice: ' + str(self.price) + '\n\tsqft: ' + str(self.sqft)
                 + '\n\tDistance to Metro: ' + str(self.distanceToMetro))
@@ -63,7 +64,7 @@ class LotNode(Node):
         return ((self.price - node2.price) ** 2 + (sqft_mult*(self.sqft - node2.sqft)) ** 2 +
                 (metro_mult*(self.distanceToMetro - node2.distanceToMetro)) ** 2) ** 0.5
 
-    def setMetroDistsance(self, dist):
+    def setMetroDistance(self, dist):
         self.distanceToMetro = dist
 
     def setNearGrocery(self, dist):
@@ -73,6 +74,12 @@ class LotNode(Node):
     def setKidFriendly(self, dist_school, dist_park):
         if dist_school < dist_school_threshold and dist_park < dist_park_threshold:
             self.kidFriendly = True
+
+    def setKidFriendly_known(self, kf_bool):
+        self.kidFriendly = kf_bool
+
+    def setNearGrocery_known(self, groc_bool):
+        self.nearGrocery = groc_bool
 
     def matches_conditions(self, argv):
         ctr = 0
