@@ -37,7 +37,6 @@ def print_to_csv(nodes):
                 'status': stat
                 # 'zipcode': node.zipcode
             })
-        print("wrote to csv at ", os.getcwd())
 
 
 def read_from_csv(file, nodes_list):
@@ -347,11 +346,8 @@ def add_node_to_database(node, k, anchor_nodes):
         node.addNeighbor(n)
 
 
-def populate_database(k, lot_nodes, anchor_nodes, warmup_size=10, sample_size=10):
+def populate_database(k, lot_nodes, anchor_nodes, warmup_size=100, sample_size=10):
     global sqft_mult, metro_mult
-    # important constants
-    warmup_size = 10
-    sample_size = 10
 
     # node lists (anchor nodes need to be Random access, lot nodes theoretically don't - this is only used for
     # initialization
@@ -382,11 +378,11 @@ def populate_database(k, lot_nodes, anchor_nodes, warmup_size=10, sample_size=10
     for dataline in file['features']:
         node = convertToNode(dataline, schools, parks_and_playgrounds, metro_stops, grocery_stores, price_dict)
         if node is not None:
-            #node.setAnchor(anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)])
+            # node.setAnchor(anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)])
             lot_nodes.append(node)
-            #anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)].addNeighbor(node)
-        if len(lot_nodes) > 20:
-            break
+            # anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)].addNeighbor(node)
+        # if len(lot_nodes) > 20:
+        #    break
 
     # run warmupFill to start populating the database (split the list into 2 sublists, warm-up and all else (or just
     # pick an index to be the cutoff
@@ -485,7 +481,7 @@ def checkBin(s):
     return False
 
 
-def main():
+def runIt():
     # parameters:
     k = 5
     lot_nodes = []
@@ -516,4 +512,12 @@ def main():
             [print(n[0]) for n in neighbors_2]
 
 
-if __name__ == '__main__': main()
+def populate_csv():
+    k = 5
+    lot_nodes = []
+    anchor_nodes = {}
+    populate_database(k, lot_nodes, anchor_nodes)
+    print_to_csv(lot_nodes)
+
+
+if __name__ == '__main__': populate_csv()
