@@ -11,6 +11,8 @@ import csv
 global sqft_mult, metro_mult, price_delta, sqft_delta, metro_delta
 global grid_dim
 from sklearn.linear_model import LinearRegression
+import time
+from iterativeSearch import *
 
 def print_to_csv(nodes):
     with open (os.getcwd()+'housingData.csv', 'wb') as csvfile:
@@ -156,7 +158,8 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
 
     for node in lot_nodes:
         # assign it to its nearest anchor node
-        node.addNeighbor(findAnchorNode(node, anchor_nodes))
+        node.setAnchor(findAnchorNode(node, anchor_nodes))
+        findAnchorNode(node, anchor_nodes).addNeighbor(node)
 
     # calculate distances between nodes (note - let's not do it redundantly.  If we know a->b, we know b->a.
     # i.e. we should fill out an upper-triangular distance matrix and get the smallest (non-zero/None) distances
@@ -180,7 +183,6 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
         idx = numpy.argpartition(A[i], k)  # get indexes of smallest values (closest distances
         for n in idx:
             lot_nodes[i].addNeighbor(lot_nodes[n])
-
     return sqft_mult, metro_mult
 
 
@@ -230,51 +232,80 @@ def findAnchorNode(lot_node, anchor_nodes):
         return anchor_nodes[get_anchor_code(price_coord, sqft_coord, 0)]
 
 
-
-def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter):
+def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter, close_matches_list=[], argv={}):
     # TODO - neighbor_counter needs to be updated simultaneoulsy on all branches - should be by ref, not value
+    start = time.time()
     global sqft_mult, metro_mult
-    assert starting_node.anchor_node  # verify the node has an anchor node
+
+    # TODO - how do we handle when we are finding nearest neighbors for searching vs for populating? separate method?
+
+    # assert starting_node.anchor_node  # verify the node has an anchor node
 
     if neighbor_counter[0] < k:
         possible_new_neighbors = []
 
         # first, add the nodes at this level of recursion
-        for connected_node_tuple in searching_node.neighbors[0].neighbors:
-            lot_tuple = connected_node_tuple[0], starting_node.getDistance(connected_node_tuple[0], sqft_mult,
-                                                                           metro_mult)
-            if lot_tuple not in searching_node.neighbors:
-                if connected_node_tuple[0].getDistance(starting_node, sqft_mult, metro_mult) \
-                        < searching_node.neighbors[-1][1]:
-                    # replace furthest neighbor of the searching node with this new node, then sort so order maintained
-                    searching_node.neighbors[-1] = (starting_node, connected_node_tuple[0].getDistance(starting_node,
-                                                                                                       sqft_mult,
-                                                                                                       metro_mult))
-                    searching_node.sort(key=(lambda x: x[1]))
+        # [print(n) for n in searching_node.neighbors]
+        # print(searching_node.neighbors[0][0].neighbors)
+        for connected_node_tuple in searching_node.neighbors[0][0].neighbors:
+            if connected_node_tuple[0] is LotNode:
+                lot_tuple = connected_node_tuple[0], starting_node.getDistance(connected_node_tuple[0], sqft_mult,
+                                                                               metro_mult)
+                if lot_tuple not in searching_node.neighbors:
+                    if argv == {}:
 
-                if lot_tuple not in possible_new_neighbors:
-                    possible_new_neighbors.append(lot_tuple)
-                    neighbor_counter[0] += 1
+                        if connected_node_tuple[0].getDistance(starting_node, sqft_mult, metro_mult) \
+                                < searching_node.neighbors[-1][1]:
+
+                            # replace furthest neighbor of the searching node with this new node, then sort so order maintained
+
+                            searching_node.neighbors[-1] = (starting_node, connected_node_tuple[0].getDistance(starting_node,
+                                                                                                               sqft_mult,
+                                                                                                             metro_mult))
+                            searching_node.sort(key=(lambda x: x[1]))
+
+                        if lot_tuple not in possible_new_neighbors:
+                            possible_new_neighbors.append(lot_tuple)
+                            neighbor_counter[0] += 1
+
+                    else:
+                        if connected_node_tuple[0].matches_conditions(argv) == 0:
+                            if lot_tuple not in possible_new_neighbors:
+                                possible_new_neighbors.append(lot_tuple)
+                                neighbor_counter[0] += 1
+
+                        elif connected_node_tuple[0].matches_conditions(argv) == 1:
+                            if lot_tuple not in close_matches_list:
+                                close_matches_list.append(lot_tuple)
+
         for next_node in possible_new_neighbors:
             find_nearest_neighbors(starting_node, next_node, k, neighbor_list, neighbor_counter)
+
+        print(possible_new_neighbors)
 
         (neighbor_list.append(possible_new_neighbors)).sort(key=(lambda x: x[1]))
         if len(neighbor_list) > k:
             neighbor_list = neighbor_list[0::k]
 
+        end = time.time()
+
+        print('Time elapsed in fancy search: ' + str(end - start) + 's')
+
         return neighbor_list
 
 
 def add_node_to_database(node, k, anchor_nodes):
-    node.addNeighbor(findAnchorNode(node, anchor_nodes))  # add the anchor node
+    #node.addNeighbor(findAnchorNode(node, anchor_nodes))  # add the anchor node
+    node.setAnchor(findAnchorNode(node, anchor_nodes))
+    findAnchorNode(node, anchor_nodes).addNeighbor(node)
 
     # add the neighbor nodes
-    k_nearest_neighbors = find_nearest_neighbors(node, node, k, [], [0])
+    k_nearest_neighbors = find_nearest_neighbors(node, findAnchorNode(node, anchor_nodes), k, [], [0])
     for n in k_nearest_neighbors:
         node.addNeighbor(n)
 
 
-def populate_database(k, lot_nodes, warmup_size = 10, sample_size=10):
+def populate_database(k, lot_nodes, anchor_nodes, warmup_size = 10, sample_size=10):
     global sqft_mult, metro_mult
     # important constants
     warmup_size = 10
@@ -282,7 +313,6 @@ def populate_database(k, lot_nodes, warmup_size = 10, sample_size=10):
 
     # node lists (anchor nodes need to be Random access, lot nodes theoretically don't - this is only used for
     # initialization
-    anchor_nodes = {}
 
     # create set of grocery stores
     grocery_stores = createSet.populateGroceryStoreList()
@@ -316,7 +346,7 @@ def populate_database(k, lot_nodes, warmup_size = 10, sample_size=10):
     # run warmupFill to start populating the database (split the list into 2 sublists, warm-up and all else (or just
     # pick an index to be the cutoff
     print(len(lot_nodes))
-    sqft_mult, metro_mult = warmupFill(lot_nodes[:warmup_size], anchor_nodes, k, warmup_size, sample_size)
+    sqft_mult, metro_mult= warmupFill(lot_nodes[:warmup_size], anchor_nodes, k, warmup_size, sample_size)
 
     # do fill up everything else
     for node in lot_nodes[warmup_size:]:
@@ -362,7 +392,7 @@ def get_search_parameters():
     property_input = input("Do you wish to search over empty lots? Y/N: ")
     while not checkBin(property_input):
         print("Error. Entered value must be either 'Y' or 'N'.")
-        family_input = input("Do you require a family-friendly property? Y/N: ")
+        family_input = input("Do you ish to search over empty lots? Y/N:  ")
 
     price_min = 0 if price_min_input == 'N' else int(str(price_min_input))
     price_max = 99999999 if price_max_input == 'N' else int(str(price_max_input))
@@ -379,7 +409,17 @@ def get_search_parameters():
     dummy_node.setMetroDistsance(metro_dist)
     dummy_node.setKidFriendly(family)
 
-    return dummy_node
+    argv = {
+        'minPrice': price_min,
+        'maxPrice': price_max,
+        'vacant': property,
+        'minSqft': acreage_min,
+        'kidFriendly': family,
+        'distanceToMetro': metro_dist,
+        'grocery': grocery
+    }
+
+    return dummy_node, argv
 
 
 # check that user argument is a valid integer
@@ -392,6 +432,7 @@ def checkInt(s):
             return True
         return False
 
+
 # check that user argument is valid binary value
 def checkBin(s):
     if str(s) == 'N' or str(s) == 'Y':
@@ -403,11 +444,28 @@ def main():
     # parameters:
     k = 5
     lot_nodes = []
+    anchor_nodes = {}
 
-    populate_database(k, lot_nodes)
+    populate_database(k, lot_nodes, anchor_nodes)
     print_to_csv(lot_nodes)
-    while True:
-        get_search_parameters()
 
+
+    while True:
+        neighbor_list = []
+        close_matches = []
+        neighbor_counter = 0
+
+        dummy_node, argv = get_search_parameters()
+        neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list, neighbor_counter, close_matches, argv)
+        neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k)
+        try:
+            assert set(neighbors) == set(neighbors_2)
+            print('Success! The lists returned by the iterative search and the nearest-neighbors search are identical.')
+        except:
+            print('Error: The lists returned by the iterative search and the nearest-neighbors search are different.')
+            print('Nearest neighbor search results:')
+            [print(n) for n in neighbors]
+            print('\nIterative search results:')
+            [print(n) for n in neighbors_2]
 
 if __name__ == '__main__': main()
