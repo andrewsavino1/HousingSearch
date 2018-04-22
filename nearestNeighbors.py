@@ -35,6 +35,12 @@ def print_to_csv(nodes):
                 'zipcode': node.zipcode
             })
 
+def read_from_csv(file, nodes_list):
+    with open (os.getcwd() +'housingData.csv') as csvfile:
+        reader = csv.reader(csvfile, )
+        # TODO finish this
+
+
 def convertToNode(data, schools, parks, metro, grocery, price_dict):
     try:
         url = "https://www.stlouis-mo.gov/government/departments/sldc/real-estate" \
