@@ -39,7 +39,8 @@ def print_to_csv(nodes):
             })
 
 
-def read_from_csv(file, nodes_list):
+def read_from_csv(file):
+    nodes_list = []
     with open(os.getcwd() + 'housingData.csv') as csvfile:
         reader = csv.reader(csvfile, delimiter = ' ')
         for row in reader:
@@ -56,6 +57,7 @@ def read_from_csv(file, nodes_list):
             node.setNearGrocery_known(groc)
             node.setMetroDistance(metro_dist)
             nodes_list.append(node)
+    return nodes_list
 
 
 def convertToNode(data, schools, parks, metro, grocery, price_dict):
@@ -346,7 +348,7 @@ def add_node_to_database(node, k, anchor_nodes):
         node.addNeighbor(n)
 
 
-def populate_database(k, lot_nodes, anchor_nodes, warmup_size=100, sample_size=10):
+def populate_database(k, lot_nodes, anchor_nodes, warmup_size=50, sample_size=10):
     global sqft_mult, metro_mult
 
     # node lists (anchor nodes need to be Random access, lot nodes theoretically don't - this is only used for
@@ -381,7 +383,7 @@ def populate_database(k, lot_nodes, anchor_nodes, warmup_size=100, sample_size=1
             # node.setAnchor(anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)])
             lot_nodes.append(node)
             # anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)].addNeighbor(node)
-        # if len(lot_nodes) > 20:
+        #if len(lot_nodes) > warmup_size:
         #    break
 
     # run warmupFill to start populating the database (split the list into 2 sublists, warm-up and all else (or just
@@ -484,11 +486,9 @@ def checkBin(s):
 def runIt():
     # parameters:
     k = 5
-    lot_nodes = []
     anchor_nodes = {}
 
-    populate_database(k, lot_nodes, anchor_nodes)
-    print_to_csv(lot_nodes)
+    lot_nodes = read_from_csv('housingData.csv')
 
     while True:
         neighbor_list = []
