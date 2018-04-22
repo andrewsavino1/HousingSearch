@@ -15,7 +15,7 @@ class Node:
         return self.id
 
     def addNeighbor(self, node):
-        self.neighbors.append((node, 0))
+        self.neighbors.append(node)
 
     def hasNeighbor(self, node):
         return True if node in self.neighbors else False
@@ -88,3 +88,6 @@ class LotNode(Node):
 class AnchorNode(Node):
     def __init__(self, id_):
         super(AnchorNode, self).__init__(id_)
+
+    def __str__(self):
+        return 'Anchor Node with ' + str(len(self.neighbors)) + ' neighbors.'

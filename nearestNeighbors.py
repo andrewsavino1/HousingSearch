@@ -7,15 +7,18 @@ import os
 import geojson as geo
 import pandas as pd
 import csv
+
 global sqft_mult, metro_mult, price_delta, sqft_delta, metro_delta
 global grid_dim
 from sklearn.linear_model import LinearRegression
 import time
 from iterativeSearch import *
 
+
 def print_to_csv(nodes):
-    with open (os.getcwd()+'housingData.csv', 'wb') as csvfile:
-        fieldnames = ['parcel_id', 'address', 'price', 'sqft', 'metro_dist', 'grocery', 'kid_friendly', 'status', 'zipcode']
+    with open(os.getcwd() + 'housingData.csv', 'w') as csvfile:
+        fieldnames = ['parcel_id', 'address', 'price', 'sqft', 'metro_dist', 'grocery', 'kid_friendly', 'status',
+                      'zipcode']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         writer.writeheader()
@@ -31,12 +34,13 @@ def print_to_csv(nodes):
                 'metro_dist': node.distanceToMetro,
                 'kid_friendly': kf,
                 'grocery': gro,
-                'status': stat,
-                'zipcode': node.zipcode
+                'status': stat
+                # 'zipcode': node.zipcode
             })
 
+
 def read_from_csv(file, nodes_list):
-    with open (os.getcwd() +'housingData.csv') as csvfile:
+    with open(os.getcwd() + 'housingData.csv') as csvfile:
         reader = csv.reader(csvfile, )
         # TODO finish this
 
@@ -89,11 +93,12 @@ def convertToNode(data, schools, parks, metro, grocery, price_dict):
         node.setMetroDistsance(metroDist)
         node.setNearGrocery(groceryDist)
         print(node)
-        return node
-    except:
-        print(data['properties']['fullAddress'])
-        print(url+'\n')
 
+        return node
+    except Exception as e:
+        print(e)
+        print(data['properties']['fullAddress'])
+        print(url + '\n')
 
 
 def findClosestLocation(house, set):
@@ -121,14 +126,14 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
     metro_vector = list(map(lambda x: x.distanceToMetro, random_sample_nodes))
     X = numpy.array([sqft_vector, metro_vector]).transpose()
 
-    regression = LinearRegression()#sm.OLS(price_vector, metro_vector).fit()
+    regression = LinearRegression()  # sm.OLS(price_vector, metro_vector).fit()
     print(X)
 
     regression.fit(X, price_vector)
 
-    #model_sqft = LinearRegression()#m.OLS(price_vector, sqft_vector).fit()
-    #model_metro.fit(price_vector, metro_vector)
-    #model_sqft.fit(price_vector, sqft_vector)
+    # model_sqft = LinearRegression()#m.OLS(price_vector, sqft_vector).fit()
+    # model_metro.fit(price_vector, metro_vector)
+    # model_sqft.fit(price_vector, sqft_vector)
 
     metro_mult = regression.coef_[0]
     sqft_mult = regression.coef_[1]
@@ -144,7 +149,7 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
         for j in range(anchor_size_initial):
             for k in range(anchor_size_initial):
                 anchor_nodes[get_anchor_code(i, j, k)] = AnchorNode(get_anchor_code(i, j, k))
-                #print(i+j+k)
+                # print(i+j+k)
     print(x for x in anchor_nodes.keys())
 
     # connect anchor nodes (up, down, left, right, AND diagonal)
@@ -157,9 +162,10 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
                     for j_ in range(j - 1, j + 2):
                         for k_ in range(k - 1, k + 2):
                             if (i_ < anchor_size_initial and j_ < anchor_size_initial and k_ < anchor_size_initial and
-                                i_ > 0 and j_ > 0 and k_ > 0 and (i != i_ or j != j_ or k != k_)):
-                                anchor_nodes[get_anchor_code(i, j, k)].addNeighbor(anchor_nodes[get_anchor_code(i_, j_, k_)])
-        # ... eww ^
+                                        i_ > 0 and j_ > 0 and k_ > 0 and (i != i_ or j != j_ or k != k_)):
+                                anchor_nodes[get_anchor_code(i, j, k)].addNeighbor(
+                                    anchor_nodes[get_anchor_code(i_, j_, k_)])
+                                # ... eww ^
 
     for node in lot_nodes:
         # assign it to its nearest anchor node
@@ -194,22 +200,24 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
 def expand_anchor_grid(anchor_nodes, new_dimensions):
     global grid_dim
     old_dimensions = grid_dim
-    for i in range(0, int(new_dimensions[0])+1):
-        for j in range(0, int(new_dimensions[1])+1):
+    for i in range(0, int(new_dimensions[0]) + 1):
+        for j in range(0, int(new_dimensions[1]) + 1):
             for k in range(0, int(new_dimensions[2]) + 1):
                 if not get_anchor_code(i, j, k) in anchor_nodes:
                     anchor_nodes[get_anchor_code(i, j, k)] = AnchorNode(get_anchor_code(i, j, k))
 
-    for i in range(0, int(new_dimensions[0])+1):
-        for j in range(0, int(new_dimensions[1])+1):
+    for i in range(0, int(new_dimensions[0]) + 1):
+        for j in range(0, int(new_dimensions[1]) + 1):
             for k in range(0, int(new_dimensions[2]) + 1):
                 for i_ in range(i - 1, i + 2):
                     for j_ in range(j - 1, j + 2):
                         for k_ in range(k - 1, k + 2):
                             if (i_ < new_dimensions[0] and j_ < new_dimensions[1] and k_ < new_dimensions[2]
-                                     and i_ > 0 and j_ > 0 and k_ > 0 and (i != i_ or j != j_ or k != k_)):
-                                if not anchor_nodes[get_anchor_code(i, j, k)].hasNeighbor(anchor_nodes[get_anchor_code(i_, j_, k_)]):
-                                    anchor_nodes[get_anchor_code(i, j, k)].addNeighbor(anchor_nodes[get_anchor_code(i_, j_, k_)])
+                                and i_ > 0 and j_ > 0 and k_ > 0 and (i != i_ or j != j_ or k != k_)):
+                                if not anchor_nodes[get_anchor_code(i, j, k)].hasNeighbor(
+                                        anchor_nodes[get_anchor_code(i_, j_, k_)]):
+                                    anchor_nodes[get_anchor_code(i, j, k)].addNeighbor(
+                                        anchor_nodes[get_anchor_code(i_, j_, k_)])
 
     grid_dim = new_dimensions
     return anchor_nodes
@@ -227,17 +235,18 @@ def findAnchorNode(lot_node, anchor_nodes):
     except:
         if metro_delta is not None:
             metro_coord = lot_node.distanceToMetro // metro_delta
-            print(len(anchor_nodes.keys()))
+            # print(len(anchor_nodes.keys()))
             expand_anchor_grid(anchor_nodes, (
-            max(price_coord, grid_dim[0]), max(sqft_coord, grid_dim[1]), max(metro_coord, grid_dim[2])))
-            print(len(anchor_nodes.keys()))
+                max(price_coord, grid_dim[0]), max(sqft_coord, grid_dim[1]), max(metro_coord, grid_dim[2])))
+            # print(len(anchor_nodes.keys()))
             return anchor_nodes[get_anchor_code(price_coord, sqft_coord, metro_coord)]
         expand_anchor_grid(anchor_nodes, (
             max(price_coord, grid_dim[0]), max(sqft_coord, grid_dim[1]), max(0, grid_dim[2])))
         return anchor_nodes[get_anchor_code(price_coord, sqft_coord, 0)]
 
 
-def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter, close_matches_list=[], first_search=True, argv={}):
+def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter, close_matches_list=[],
+                           first_search=True, argv={}):
     # TODO - neighbor_counter needs to be updated simultaneously on all branches - should be by ref, not value
     start = time.time()
     global sqft_mult, metro_mult
@@ -254,27 +263,34 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
         # print(searching_node.neighbors[0][0].neighbors)
         immediate_neighbors = []
         if first_search:
-            immediate_neighbors.append(starting_node.neighbors[0])
-            for a_node in starting_node.anchor_node.neighbors[0]:
-                if a_node is AnchorNode:
+            immediate_neighbors.append(starting_node.anchor_node)
+            # print(starting_node.anchor_node.neighbors)
+            for a_node in starting_node.anchor_node.neighbors:
+
+                if type(a_node) is AnchorNode:
+                    # print('Wooo anchor nodessss 4 dayzzz')
                     immediate_neighbors.append(a_node)
         else:
-            immediate_neighbors.append(searching_node.anchor_node)
+            immediate_neighbors.append(searching_node[0].anchor_node)
+
+        # [print(n) for n in immediate_neighbors]
 
         for a_node in immediate_neighbors:
             for connected_node_tuple in a_node.neighbors:
-                if connected_node_tuple[0] is LotNode:
-                    lot_tuple = connected_node_tuple[0], starting_node.getDistance(connected_node_tuple[0], sqft_mult,
+                if type(connected_node_tuple) is LotNode and type(searching_node) is LotNode:
+                    lot_tuple = connected_node_tuple, starting_node.getDistance(connected_node_tuple, sqft_mult,
                                                                                    metro_mult)
                     if lot_tuple not in searching_node.neighbors:
                         if argv == {}:
 
                             if connected_node_tuple[0].getDistance(starting_node, sqft_mult, metro_mult) \
                                     < searching_node.neighbors[-1][1]:
-
                                 # replace furthest neighbor of the searching node with this new node, then sort
 
-                                searching_node.neighbors[-1] = (starting_node, connected_node_tuple[0].getDistance(starting_node, sqft_mult, metro_mult))
+                                searching_node.neighbors[-1] = (starting_node,
+                                                                connected_node_tuple[0].getDistance(starting_node,
+                                                                                                    sqft_mult,
+                                                                                                    metro_mult))
                                 searching_node.sort(key=(lambda x: x[1]))
 
                             if lot_tuple not in possible_new_neighbors:
@@ -294,9 +310,10 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
         for next_node in possible_new_neighbors:
             find_nearest_neighbors(starting_node, next_node, k, neighbor_list, neighbor_counter, first_search=False)
 
-        print(possible_new_neighbors)
+        #print(possible_new_neighbors)
+        neighbor_list += possible_new_neighbors
 
-        (neighbor_list.append(possible_new_neighbors)).sort(key=(lambda x: x[1]))
+        neighbor_list.sort(key=(lambda x: x[1]))
         if len(neighbor_list) > k:
             neighbor_list = neighbor_list[0::k]
 
@@ -308,7 +325,7 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
 
 
 def add_node_to_database(node, k, anchor_nodes):
-    #node.addNeighbor(findAnchorNode(node, anchor_nodes))  # add the anchor node
+    # node.addNeighbor(findAnchorNode(node, anchor_nodes))  # add the anchor node
     node.setAnchor(findAnchorNode(node, anchor_nodes))
     findAnchorNode(node, anchor_nodes).addNeighbor(node)
 
@@ -318,7 +335,7 @@ def add_node_to_database(node, k, anchor_nodes):
         node.addNeighbor(n)
 
 
-def populate_database(k, lot_nodes, anchor_nodes, warmup_size = 10, sample_size=10):
+def populate_database(k, lot_nodes, anchor_nodes, warmup_size=10, sample_size=10):
     global sqft_mult, metro_mult
     # important constants
     warmup_size = 10
@@ -344,7 +361,7 @@ def populate_database(k, lot_nodes, anchor_nodes, warmup_size = 10, sample_size=
     price_list = pd.read_csv(file_loc)
 
     price_dict = dict(zip(price_list.Neighborhood, price_list.Price))
-    print(price_dict)
+    # print(price_dict)
 
     # call convertToNode on every row of the data file
     callstr = os.getcwd() + '\\Data\\lra.geojson'
@@ -353,14 +370,16 @@ def populate_database(k, lot_nodes, anchor_nodes, warmup_size = 10, sample_size=
     for dataline in file['features']:
         node = convertToNode(dataline, schools, parks_and_playgrounds, metro_stops, grocery_stores, price_dict)
         if node is not None:
+            #node.setAnchor(anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)])
             lot_nodes.append(node)
+            #anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)].addNeighbor(node)
         if len(lot_nodes) > 20:
             break
 
     # run warmupFill to start populating the database (split the list into 2 sublists, warm-up and all else (or just
     # pick an index to be the cutoff
-    print(len(lot_nodes))
-    sqft_mult, metro_mult= warmupFill(lot_nodes[:warmup_size], anchor_nodes, k, warmup_size, sample_size)
+    # print(len(lot_nodes))
+    sqft_mult, metro_mult = warmupFill(lot_nodes[:warmup_size], anchor_nodes, k, warmup_size, sample_size)
 
     # do fill up everything else
     for node in lot_nodes[warmup_size:]:
@@ -463,14 +482,14 @@ def main():
     populate_database(k, lot_nodes, anchor_nodes)
     print_to_csv(lot_nodes)
 
-
     while True:
         neighbor_list = []
         close_matches = []
         neighbor_counter = 0
 
         dummy_node, argv = get_search_parameters()
-        neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list, neighbor_counter, close_matches, argv)
+        neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list,
+                                           neighbor_counter, close_matches, argv)
         neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k)
         try:
             assert set(neighbors) == set(neighbors_2)
@@ -481,5 +500,6 @@ def main():
             [print(n) for n in neighbors]
             print('\nIterative search results:')
             [print(n) for n in neighbors_2]
+
 
 if __name__ == '__main__': main()
