@@ -44,19 +44,22 @@ def read_from_csv(file):
     with open(file) as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         for row in reader:
-            id = row[0]
-            address = row[1]
-            price = row[2]
-            sqft = row[3]
-            metro_dist = row[4]
-            kf = True if row[5] is 'Y' else False
-            groc = True if row[6] is 'Y' else False
-            stat = True if row[7] is 'Y' else False
-            node = LotNode(id, address, price, sqft,0,0,vacant=stat)
-            node.setKidFriendly_known(kf)
-            node.setNearGrocery_known(groc)
-            node.setMetroDistance(metro_dist)
-            nodes_list.append(node)
+            try:
+                id = int(row[0])
+                address = row[1]
+                price = int(row[2])
+                sqft = int(row[3])
+                metro_dist = float(row[4])
+                kf = True if row[5] is 'Y' else False
+                groc = True if row[6] is 'Y' else False
+                stat = True if row[7] is 'Y' else False
+                node = LotNode(id, address, price, sqft, 0, 0, vacant=stat)
+                node.setKidFriendly_known(kf)
+                node.setNearGrocery_known(groc)
+                node.setMetroDistance(metro_dist)
+                nodes_list.append(node)
+            except:
+                print("this line wasn't a node")
     return nodes_list
 
 
