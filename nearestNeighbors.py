@@ -41,8 +41,8 @@ def print_to_csv(nodes):
 
 def read_from_csv(file):
     nodes_list = []
-    with open(os.getcwd() + 'housingData.csv') as csvfile:
-        reader = csv.reader(csvfile, delimiter = ' ')
+    with open(file) as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
         for row in reader:
             id = row[0]
             address = row[1]
@@ -348,7 +348,7 @@ def add_node_to_database(node, k, anchor_nodes):
         node.addNeighbor(n)
 
 
-def populate_database(k, lot_nodes, anchor_nodes, warmup_size=50, sample_size=10):
+def populate_database(lot_nodes):
     global sqft_mult, metro_mult
 
     # node lists (anchor nodes need to be Random access, lot nodes theoretically don't - this is only used for
@@ -376,19 +376,24 @@ def populate_database(k, lot_nodes, anchor_nodes, warmup_size=50, sample_size=10
     # call convertToNode on every row of the data file
     callstr = os.getcwd() + '\\Data\\lra.geojson'
     file = geo.load(open(callstr))
-
+    index = 0
     for dataline in file['features']:
         node = convertToNode(dataline, schools, parks_and_playgrounds, metro_stops, grocery_stores, price_dict)
         if node is not None:
             # node.setAnchor(anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)])
             lot_nodes.append(node)
             # anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)].addNeighbor(node)
-        #if len(lot_nodes) > warmup_size:
-        #    break
+            print(index)
+            index += 1
+        if len(lot_nodes) > 1500:
+            break
 
+
+def create_graph_space(lot_nodes, anchor_nodes, k, sample_size, warmup_size):
     # run warmupFill to start populating the database (split the list into 2 sublists, warm-up and all else (or just
     # pick an index to be the cutoff
     # print(len(lot_nodes))
+    global sqft_mult, metro_mult
     sqft_mult, metro_mult = warmupFill(lot_nodes[:warmup_size], anchor_nodes, k, warmup_size, sample_size)
 
     # do fill up everything else
@@ -488,7 +493,9 @@ def runIt():
     k = 5
     anchor_nodes = {}
 
-    lot_nodes = read_from_csv('housingData.csv')
+    lot_nodes = read_from_csv('housingData1500.csv')
+
+    create_graph_space(lot_nodes, anchor_nodes, k, sample_size=200, warmup_size=500)
 
     while True:
         neighbor_list = []
@@ -520,4 +527,4 @@ def populate_csv():
     print_to_csv(lot_nodes)
 
 
-if __name__ == '__main__': populate_csv()
+if __name__ == '__main__': runIt()  #populate_csv()
