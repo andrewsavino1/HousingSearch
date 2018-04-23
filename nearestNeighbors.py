@@ -266,7 +266,7 @@ def findAnchorNode(lot_node, anchor_nodes):
 def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter, close_matches_list,
                            argv, first_search=True):
     # TODO - neighbor_counter needs to be updated simultaneously on all branches - should be by ref, not value
-    start = time.time()
+    # start = time.time()
     global sqft_mult, metro_mult
 
     # assert starting_node.anchor_node  # verify the node has an anchor node
@@ -331,9 +331,9 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
         if len(neighbor_list) > k:
             neighbor_list = neighbor_list[:k]
 
-        end = time.time()
+        # end = time.time()
 
-        print('Time elapsed in fancy search: ' + str(end - start) + 's')
+        # print('Time elapsed in fancy search: ' + str(end - start) + 's')
 
         return neighbor_list
 
@@ -413,7 +413,7 @@ def get_search_parameters():
         print("Error. Price maximum must be a integer value.")
         price_max_input = input("Enter a price maximum (or 'N' if not applicable): ")
 
-    metro_dist_input = input("Enter a maximum acceptable distance to a metro stop (or 'N' if not applicable): ")
+    metro_dist_input = input("Enter a maximum acceptable distance (in miles) to a metro stop (or 'N' if not applicable): ")
     while not checkInt(metro_dist_input):
         print("Error. Distance maximum must be a integer value.")
         price_min_input = input("Enter a maximum acceptable distance to a metro stop (or 'N' if not applicable):")
@@ -423,10 +423,10 @@ def get_search_parameters():
         print("Error. Square footage minimum must be an integer value.")
         acreage_min_input = input("Enter a minimum acceptable square footage (or 'N' if not applicable): ")
 
-    parking_input = input("Do you require a parking spot? Y/N: ")
-    while not checkBin(parking_input):
-        print("Error. Entered value must be either 'Y' or 'N'.")
-        parking_input = input("Do you require a parking spot? Y/N: ")
+    #parking_input = input("Do you require a parking spot? Y/N: ")
+    #while not checkBin(parking_input):
+    #    print("Error. Entered value must be either 'Y' or 'N'.")
+    #    parking_input = input("Do you require a parking spot? Y/N: ")
 
     grocery_input = input("Do you need to be within walking distance of a grocery store? Y/N: ")
     while not checkBin(grocery_input):
@@ -448,7 +448,7 @@ def get_search_parameters():
     metro_dist = 99999999 if metro_dist_input == 'N' else int(str(metro_dist_input))
     acreage_min = 0 if acreage_min_input == 'N' else int(str(acreage_min_input))
 
-    parking = True if str(parking_input) == "Y" else False
+    # parking = True if str(parking_input) == "Y" else False
     grocery = True if str(grocery_input) == "Y" else False
     family = 0 if str(family_input) == "Y" else 99999
     property = True if str(property_input) == "Y" else False
@@ -474,7 +474,7 @@ def get_search_parameters():
 # check that user argument is a valid integer
 def checkInt(s):
     try:
-        int(str(s))
+        float(str(s))
         return True
     except ValueError:
         if str(s) == 'N':
@@ -505,8 +505,13 @@ def runIt():
 
         dummy_node, argv = get_search_parameters()
         dummy_node.setAnchor(findAnchorNode(dummy_node, anchor_nodes))
+        start = time.time()
         neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list,
                                            neighbor_counter, close_matches, argv)
+        end = time.time()
+
+        print('Time taken by nearest-neighbor search: ' + str(end - start))
+
         neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k, argv)
         try:
             assert set(neighbors) == set(neighbors_2)
