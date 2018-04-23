@@ -7,16 +7,18 @@ import os
 import geojson as geo
 import pandas as pd
 import csv
-
+import random
 global sqft_mult, metro_mult, price_delta, sqft_delta, metro_delta
 global grid_dim
 from sklearn.linear_model import LinearRegression
 import time
 from iterativeSearch import *
+ctr_ = 0
+num_results = 10
 
 
 def print_to_csv(nodes):
-    with open('housingData.csv', 'w', newline='') as csvfile:
+    with open('housingData11000csv', 'w', newline='') as csvfile:
         fieldnames = ['parcel_id', 'address', 'price', 'sqft', 'metro_dist', 'grocery', 'kid_friendly', 'status',
                       'zipcode']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -110,7 +112,7 @@ def convertToNode(data, schools, parks, metro, grocery, price_dict):
         node.setKidFriendly(schoolDist, parkDist)
         node.setMetroDistance(metroDist)
         node.setNearGrocery(groceryDist)
-        print(node)
+        #print(node)
 
         return node
     except Exception as e:
@@ -267,11 +269,13 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
                            argv, first_search=True):
     # TODO - neighbor_counter needs to be updated simultaneously on all branches - should be by ref, not value
     # start = time.time()
-    global sqft_mult, metro_mult
+
+    global sqft_mult, metro_mult, ctr_
+    ctr_ += 1
 
     # assert starting_node.anchor_node  # verify the node has an anchor node
 
-    if neighbor_counter < k:
+    if neighbor_counter < num_results:
         possible_new_neighbors = []
 
         # first, add the nodes at this level of recursion
@@ -328,8 +332,8 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
         neighbor_list += possible_new_neighbors
 
         neighbor_list.sort(key=(lambda x: x[1]))
-        if len(neighbor_list) > k:
-            neighbor_list = neighbor_list[:k]
+        if len(neighbor_list) > num_results:
+            neighbor_list = neighbor_list[0:num_results]
 
         # end = time.time()
 
@@ -379,15 +383,19 @@ def populate_database(lot_nodes):
     file = geo.load(open(callstr))
     index = 0
     for dataline in file['features']:
-        node = convertToNode(dataline, schools, parks_and_playgrounds, metro_stops, grocery_stores, price_dict)
-        if node is not None:
+        index += 1
+        if index > 9000:
+            node = convertToNode(dataline, schools, parks_and_playgrounds, metro_stops, grocery_stores, price_dict)
+            if node is not None:
             # node.setAnchor(anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)])
-            lot_nodes.append(node)
+                lot_nodes.append(node)
             # anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)].addNeighbor(node)
-            print(index)
-            index += 1
-        if len(lot_nodes) > 1500:
-            break
+            # print(index)
+
+
+        #if len(lot_nodes) > 150:
+        #    break
+        #print('index: ' + str(index))
 
 
 def create_graph_space(lot_nodes, anchor_nodes, k, sample_size, warmup_size):
@@ -494,9 +502,14 @@ def runIt():
     k = 5
     anchor_nodes = {}
 
-    lot_nodes = read_from_csv('housingData1500.csv')
+    files = ['housingData1500.csv']#, 'housingData3000.csv', 'housingData4500csv', 'housingData6000csv', 'housingData7500csv', 'housingData9000csv', 'housingData11000csv']
 
-    create_graph_space(lot_nodes, anchor_nodes, k, sample_size=200, warmup_size=1500)
+    lot_nodes = []
+
+    for file in files:
+        lot_nodes.extend(read_from_csv(file))
+
+    create_graph_space(lot_nodes, anchor_nodes, k, sample_size=200, warmup_size=len(lot_nodes))
 
     while True:
         neighbor_list = []
@@ -510,9 +523,99 @@ def runIt():
                                            neighbor_counter, close_matches, argv)
         end = time.time()
 
-        print('Time taken by nearest-neighbor search: ' + str(end - start))
+        if len(close_matches) > num_results:
+            close_matches = close_matches[0:num_results]
+        print('Time taken by nearest-neighbor search: ' + str((end - start)*1000) + 'ms')
+        print('Recursive' + str(ctr_))
 
+        start = time.time()
         neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k, argv)
+        end = time.time()
+        print('Time taken by iterative search: ' + str((end - start)*1000) + 'ms')
+
+        try:
+            assert set(neighbors) == set(neighbors_2)
+            if (len(neighbors)) == 0:
+                print('Sorry, your search did not return any results. Please try again.')
+            else:
+                print('Success! The lists returned by the iterative search and the nearest-neighbors search are identical.')
+                [print(str(n[0]) + '\n' + str(n[1])) for n in neighbors]
+                print('\nClose matches: ')
+                [print(n[0]) for n in close_matches]
+        except:
+            print('Error: The lists returned by the iterative search and the nearest-neighbors search are different.')
+            print('Nearest neighbor search results:')
+            [print(str(n[0]) + '\n' + str(n[1])) for n in neighbors]
+            print('\nIterative search results:')
+            [print(str(n[0]) + '\n' + str(n[1])) for n in neighbors_2]
+
+
+def testIt():
+    # parameters:
+    k = 5
+    anchor_nodes = {}
+
+    files = ['housingData1500.csv', 'housingData3000.csv', 'housingData4500csv', 'housingData6000csv', 'housingData7500csv', 'housingData9000csv', 'housingData11000csv']
+
+    lot_nodes = []
+
+    for file in files:
+        lot_nodes.extend(read_from_csv(file))
+
+    #print(len(lot_nodes))
+
+    create_graph_space(lot_nodes, anchor_nodes, k, sample_size=200, warmup_size=len(lot_nodes))
+
+    nn_times = []
+    iter_times = []
+    nn_o = []
+    iter_o = []
+    seeding = [2,3,5,6,7,8,9,10,35,13]
+
+    while len(nn_times) < 10:
+        global ctr_
+        ctr_ = 0
+        neighbor_list = []
+        close_matches = []
+        neighbor_counter = 0
+        random.seed(seeding[len(nn_times)])
+        price_min = random.randint(100, 1000)
+        price_max = random.randint(10, 1500) + price_min
+        acreage_min = random.randint(0, 600)
+        metro_dist = float(random.randint(10, 100))/40.0
+        family = float(random.randint(0, 3))/10.0
+        grocery = bool(random.getrandbits(1))
+        property = bool(random.getrandbits(1))
+
+        dummy_node = LotNode(0, '', price_min, acreage_min, 0, 0)
+        dummy_node.setNearGrocery(grocery)
+        dummy_node.setMetroDistance(metro_dist)
+        dummy_node.setKidFriendly(family, family)
+
+        argv = {
+            'minPrice': price_min,
+            'maxPrice': price_max,
+            'vacant': property,
+            'minSqft': acreage_min,
+            'kidFriendly': family,
+            'distanceToMetro': metro_dist,
+            'grocery': grocery
+        }
+        dummy_node.setAnchor(findAnchorNode(dummy_node, anchor_nodes))
+        start = time.time()
+        neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list,
+                                           neighbor_counter, close_matches, argv)
+        end = time.time()
+
+        print('Time taken by nearest-neighbor search: ' + str((end - start)*1000) + 'ms')
+        nn_times.append(end-start)
+        nn_o.append(ctr_)
+        iter_o.append(len(lot_nodes))
+        start = time.time()
+        neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k, argv)
+        end = time.time()
+        print('Time taken by iterative search: ' + str((end - start)*1000) + 'ms')
+        iter_times.append(end - start)
         try:
             assert set(neighbors) == set(neighbors_2)
             print('Success! The lists returned by the iterative search and the nearest-neighbors search are identical.')
@@ -523,14 +626,18 @@ def runIt():
             [print(n[0]) for n in neighbors]
             print('\nIterative search results:')
             [print(n[0]) for n in neighbors_2]
+    print('Average iterative: ' + str(1000*sum(iter_times)/float(len(iter_times))))
+    print('Average nearest-neighbor: ' + str(1000*sum(nn_times)/float(len(nn_times))))
+    print('Average calls to nn: ' + str(float(sum(nn_o))/float(len(nn_o))))
+    print('Average calls to iter: ' + str(float(sum(iter_o))/float(len(iter_o))))
 
 
 def populate_csv():
     k = 5
     lot_nodes = []
     anchor_nodes = {}
-    populate_database(k, lot_nodes, anchor_nodes)
+    populate_database(lot_nodes)
     print_to_csv(lot_nodes)
 
 
-if __name__ == '__main__': runIt()  #populate_csv()
+if __name__ == '__main__': testIt()
