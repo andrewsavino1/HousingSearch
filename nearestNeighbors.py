@@ -636,4 +636,4 @@ def populate_csv():
     print_to_csv(lot_nodes)
 
 
-if __name__ == '__main__': testIt()
+if __name__ == '__main__': runIt()
