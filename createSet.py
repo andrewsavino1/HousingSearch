@@ -40,7 +40,7 @@ metro_raw_coordinates = [(38.6279026, -90.1925076, '8th & Pine'),
                          (38.669179, -90.2983697, 'Wellston')
                          ]
 
-
+# populate list of metro stops using the coordinates above
 def populateMetroList():
     metro_stops = []
     for (x, y, name) in metro_raw_coordinates:
@@ -48,6 +48,7 @@ def populateMetroList():
     return metro_stops
 
 
+# populate list of grocery stores from geojson
 def populateGroceryStoreList():
     grocery_stores = []
     callstr = os.getcwd() + '\\Data\\GroceryStores.geojson'
@@ -58,6 +59,7 @@ def populateGroceryStoreList():
     return grocery_stores
 
 
+# populate list of schools from geojson
 def populateSchoolList():
     schools = []
     callstr = os.getcwd() + '\\Data\\PrivateSchool.geojson'
@@ -73,6 +75,7 @@ def populateSchoolList():
     return schools
 
 
+# populate list of parks and playgrounds from geojson
 def populateParksandPlaygroundsList():
     p_and_p = []
     callstr = os.getcwd() + '\\Data\\Playgrounds.geojson'

@@ -1,11 +1,12 @@
 from location import *
 
-# threshold distances for
+# threshold distances
 grocery_distance_threshold = 0.3
-dist_school_threshold = 0  # TODO
-dist_park_threshold = 0  # TODO
+dist_school_threshold = 0.3
+dist_park_threshold = 0.3
 
-
+# generic node object
+# contains a list of neighbors
 class Node:
     def __init__(self, id_):
         self.id = id_
@@ -21,6 +22,8 @@ class Node:
         return True if node in self.neighbors else False
 
 
+# lotnode object
+# used to store information for houses/lots
 class LotNode(Node):
     def __init__(self, id_, address, price, sqft, centerX, centerY, hasParkingSpot=False,
                  vacant=False):
@@ -60,6 +63,9 @@ class LotNode(Node):
     def setAnchor(self, anchor):
         self.anchor_node = anchor
 
+    # get 'distance' from another node, where the difference in attributes is scaled to be
+    # an equivalent difference in price. See modified Euclidean distance in the presentation
+    # or check the warmupFill method in nearestNeighbors.py
     def getDistance(self, node2, sqft_mult, metro_mult):
         return ((self.price - node2.price) ** 2 + (sqft_mult*(self.sqft - node2.sqft)) ** 2 +
                 (metro_mult*(self.distanceToMetro - node2.distanceToMetro)) ** 2) ** 0.5
@@ -81,6 +87,8 @@ class LotNode(Node):
     def setNearGrocery_known(self, groc_bool):
         self.nearGrocery = groc_bool
 
+    # given a query argv, check how many conditions this lotnode violates
+    # used to determine if the property can be an exact match or a close match
     def matches_conditions(self, argv):
         ctr = 0
         ctr += 1 if self.price < argv['minPrice'] or self.price > argv['maxPrice'] else 0
@@ -92,6 +100,7 @@ class LotNode(Node):
         return ctr
 
 
+# class for anchor nodes
 class AnchorNode(Node):
     def __init__(self, id_):
         super(AnchorNode, self).__init__(id_)

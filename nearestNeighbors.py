@@ -16,9 +16,9 @@ from iterativeSearch import *
 ctr_ = 0
 num_results = 10
 
-
+# print results of web scraping and geojson to a csv
 def print_to_csv(nodes):
-    with open('housingData11000csv', 'w', newline='') as csvfile:
+    with open('housingDatacsv', 'w', newline='') as csvfile:
         fieldnames = ['parcel_id', 'address', 'price', 'sqft', 'metro_dist', 'grocery', 'kid_friendly', 'status',
                       'zipcode']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -41,6 +41,7 @@ def print_to_csv(nodes):
             })
 
 
+# read data from a csv file to populate the list of nodes
 def read_from_csv(file):
     nodes_list = []
     with open(file) as csvfile:
@@ -65,6 +66,7 @@ def read_from_csv(file):
     return nodes_list
 
 
+# convert results of geojson and web scraping into a LotNode object
 def convertToNode(data, schools, parks, metro, grocery, price_dict):
     try:
         url = "https://www.stlouis-mo.gov/government/departments/sldc/real-estate" \
@@ -91,6 +93,7 @@ def convertToNode(data, schools, parks, metro, grocery, price_dict):
         parkDist = findClosestLocation(loc, parks) * 69.172
 
         price = info['Value (Standard or Appraised)']
+        # when the price is not listed, we use the default price for the corresponding neighborhood
         try:
             price = int(price.replace('$', ''))
         except:
@@ -115,31 +118,35 @@ def convertToNode(data, schools, parks, metro, grocery, price_dict):
         #print(node)
 
         return node
+    # if property is no longer for sale or is not on the LRA website
     except Exception as e:
         print(e)
         print(data['properties']['fullAddress'])
         print(url + '\n')
 
 
+# find the closest metro stop / grocery store / etc
 def findClosestLocation(house, set):
     min_dist = 99999999
     for loc in set:
         min_dist = min(min_dist, loc.getDistance(house))
     return min_dist
 
-
+# for a given coordinate in the price, metro, sqft dimension, find the associated anchor key
 def get_anchor_code(i, j, k):
     i = min(i, 99)
     j = min(j, 99)
     k = min(k, 99)
     return i * 10000 + j * 100 + k
 
-
+# populate anchor nodes
+# populate database with existing houses using brute force
 def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
     global metro_mult, sqft_mult, sqft_delta, metro_delta, price_delta
     anchor_size_initial = 5
 
-    # take random sample of lot nodes and perform regression (can probably import something to do this for us
+    # take random sample of lot nodes and perform regression
+    # used for distance calculation
 
     # using this: https://towardsdatascience.com/simple-and-multiple-linear-regression-in-python-c928425168f9
 
@@ -216,7 +223,8 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
         lot_nodes[i].neighbors.pop(0)  # get rid of itself
     return sqft_mult, metro_mult
 
-
+# if we encounter a lotnode has attributes placing it in a non-existent dimension of anchor nodes
+# expand the anchor grid to be able to contain an anchor node which holds that lotnode
 def expand_anchor_grid(anchor_nodes, new_dimensions):
     global grid_dim
     old_dimensions = grid_dim
@@ -242,7 +250,7 @@ def expand_anchor_grid(anchor_nodes, new_dimensions):
     grid_dim = new_dimensions
     return anchor_nodes
 
-
+# given a lotnode, find its associated anchor node
 def findAnchorNode(lot_node, anchor_nodes):
     global price_delta, sqft_delta, metro_delta, grid_dim
     price_coord = lot_node.price // price_delta
@@ -264,17 +272,15 @@ def findAnchorNode(lot_node, anchor_nodes):
             max(price_coord, grid_dim[0]), max(sqft_coord, grid_dim[1]), max(0, grid_dim[2])))
         return anchor_nodes[get_anchor_code(price_coord, sqft_coord, 0)]
 
-
+# recursive K-nearest neighbors search
 def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter, close_matches_list,
                            argv, first_search=True):
-    # TODO - neighbor_counter needs to be updated simultaneously on all branches - should be by ref, not value
-    # start = time.time()
 
     global sqft_mult, metro_mult, ctr_
     ctr_ += 1
 
-    # assert starting_node.anchor_node  # verify the node has an anchor node
 
+    # only proceed if the desired number of results has not already been found
     if neighbor_counter < num_results:
         possible_new_neighbors = []
 
@@ -284,16 +290,15 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
         immediate_neighbors = []
         if first_search:
             immediate_neighbors.append(starting_node.anchor_node)
-            # print(starting_node.anchor_node.neighbors)
+
             for a_node in starting_node.anchor_node.neighbors:
 
                 if type(a_node) is AnchorNode:
-                    # print('Wooo anchor nodessss 4 dayzzz')
                     immediate_neighbors.append(a_node)
         else:
             immediate_neighbors.append(searching_node[0].anchor_node)
 
-        # [print(n) for n in immediate_neighbors]
+        # find possible nearest neighbors and append them to a list, sorted by distance
 
         for a_node in immediate_neighbors:
             for connected_node in a_node.neighbors:
@@ -315,6 +320,8 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
                                 neighbor_counter += 1
 
                         else:
+                            # check to see if the node matches all the conditions, or all but one
+                            # otherwise it does not qualify as a valid result
                             if connected_node.matches_conditions(argv) == 0:
                                 if lot_tuple not in possible_new_neighbors:
                                     possible_new_neighbors.append(lot_tuple)
@@ -335,13 +342,9 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
         if len(neighbor_list) > num_results:
             neighbor_list = neighbor_list[0:num_results]
 
-        # end = time.time()
-
-        # print('Time elapsed in fancy search: ' + str(end - start) + 's')
-
         return neighbor_list
 
-
+# add a node to the list of lotnodes
 def add_node_to_database(node, k, anchor_nodes):
     # node.addNeighbor(findAnchorNode(node, anchor_nodes))  # add the anchor node
     node.setAnchor(findAnchorNode(node, anchor_nodes))
@@ -352,7 +355,7 @@ def add_node_to_database(node, k, anchor_nodes):
     for n in k_nearest_neighbors:
         node.addNeighbor(n)
 
-
+# method for populating sets, and calling other methods to get the necessary nodes
 def populate_database(lot_nodes):
     global sqft_mult, metro_mult
 
@@ -373,10 +376,9 @@ def populate_database(lot_nodes):
 
     file_loc = "https://raw.githubusercontent.com/andrewsavino1/HousingSearch/master/Data/missing_price.csv"
 
+    # list of default prices by neighborhood
     price_list = pd.read_csv(file_loc)
-
     price_dict = dict(zip(price_list.Neighborhood, price_list.Price))
-    # print(price_dict)
 
     # call convertToNode on every row of the data file
     callstr = os.getcwd() + '\\Data\\lra.geojson'
@@ -387,21 +389,13 @@ def populate_database(lot_nodes):
         if index > 9000:
             node = convertToNode(dataline, schools, parks_and_playgrounds, metro_stops, grocery_stores, price_dict)
             if node is not None:
-            # node.setAnchor(anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)])
                 lot_nodes.append(node)
-            # anchor_nodes[get_anchor_code(node.price, node.sqft, node.distanceToMetro)].addNeighbor(node)
-            # print(index)
 
-
-        #if len(lot_nodes) > 150:
-        #    break
-        #print('index: ' + str(index))
-
-
+# used to populate data when csv data already exists
 def create_graph_space(lot_nodes, anchor_nodes, k, sample_size, warmup_size):
     # run warmupFill to start populating the database (split the list into 2 sublists, warm-up and all else (or just
     # pick an index to be the cutoff
-    # print(len(lot_nodes))
+
     global sqft_mult, metro_mult
     sqft_mult, metro_mult = warmupFill(lot_nodes[:warmup_size], anchor_nodes, k, warmup_size, sample_size)
 
@@ -409,7 +403,7 @@ def create_graph_space(lot_nodes, anchor_nodes, k, sample_size, warmup_size):
     for node in lot_nodes[warmup_size:]:
         add_node_to_database(node, k, anchor_nodes)
 
-
+# get user input for running a query
 def get_search_parameters():
     price_min_input = input("Enter a price minimum (or 'N' if not applicable): ")
     while not checkInt(price_min_input):
@@ -430,11 +424,6 @@ def get_search_parameters():
     while not checkInt(acreage_min_input):
         print("Error. Square footage minimum must be an integer value.")
         acreage_min_input = input("Enter a minimum acceptable square footage (or 'N' if not applicable): ")
-
-    #parking_input = input("Do you require a parking spot? Y/N: ")
-    #while not checkBin(parking_input):
-    #    print("Error. Entered value must be either 'Y' or 'N'.")
-    #    parking_input = input("Do you require a parking spot? Y/N: ")
 
     grocery_input = input("Do you need to be within walking distance of a grocery store? Y/N: ")
     while not checkBin(grocery_input):
@@ -496,21 +485,24 @@ def checkBin(s):
         return True
     return False
 
-
+# main method for running a search
 def runIt():
     # parameters:
     k = 5
     anchor_nodes = {}
 
-    files = ['housingData1500.csv']#, 'housingData3000.csv', 'housingData4500csv', 'housingData6000csv', 'housingData7500csv', 'housingData9000csv', 'housingData11000csv']
+    files = ['housingData1500.csv', 'housingData3000.csv'] # , 'housingData4500csv', 'housingData6000csv', 'housingData7500csv', 'housingData9000csv', 'housingData11000csv']
 
     lot_nodes = []
 
     for file in files:
         lot_nodes.extend(read_from_csv(file))
 
+    # populate the data structures
     create_graph_space(lot_nodes, anchor_nodes, k, sample_size=200, warmup_size=len(lot_nodes))
 
+    # continuously request user input and perform a query
+    # return results and the runtime, and check that
     while True:
         neighbor_list = []
         close_matches = []
@@ -518,22 +510,23 @@ def runIt():
 
         dummy_node, argv = get_search_parameters()
         dummy_node.setAnchor(findAnchorNode(dummy_node, anchor_nodes))
-        start = time.time()
+        # start = time.time()
         neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list,
                                            neighbor_counter, close_matches, argv)
-        end = time.time()
+        # end = time.time()
 
         if len(close_matches) > num_results:
             close_matches = close_matches[0:num_results]
-        print('Time taken by nearest-neighbor search: ' + str((end - start)*1000) + 'ms')
-        print('Recursive' + str(ctr_))
+        # print('Time taken by nearest-neighbor search: ' + str((end - start)*1000) + 'ms')
+        print('Recursive number of calls: ' + str(ctr_))
 
-        start = time.time()
+        # start = time.time()
         neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k, argv)
-        end = time.time()
-        print('Time taken by iterative search: ' + str((end - start)*1000) + 'ms')
+        # end = time.time()
+        # print('Time taken by iterative search: ' + str((end - start)*1000) + 'ms')
 
         try:
+            # check that results are the same and non empty
             assert set(neighbors) == set(neighbors_2)
             if (len(neighbors)) == 0:
                 print('Sorry, your search did not return any results. Please try again.')
@@ -550,12 +543,13 @@ def runIt():
             [print(str(n[0]) + '\n' + str(n[1])) for n in neighbors_2]
 
 
+# main method for running a test
 def testIt():
     # parameters:
     k = 5
     anchor_nodes = {}
 
-    files = ['housingData1500.csv', 'housingData3000.csv', 'housingData4500csv', 'housingData6000csv', 'housingData7500csv', 'housingData9000csv', 'housingData11000csv']
+    files = ['housingData1500.csv', 'housingData3000.csv']#, 'housingData4500csv', 'housingData6000csv', 'housingData7500csv', 'housingData9000csv', 'housingData11000csv']
 
     lot_nodes = []
 
@@ -572,6 +566,8 @@ def testIt():
     iter_o = []
     seeding = [2,3,5,6,7,8,9,10,35,13]
 
+    # run 10 seeded tests
+    # seeding ensures fair comparison between trials
     while len(nn_times) < 10:
         global ctr_
         ctr_ = 0
@@ -602,19 +598,19 @@ def testIt():
             'grocery': grocery
         }
         dummy_node.setAnchor(findAnchorNode(dummy_node, anchor_nodes))
-        start = time.time()
+        # start = time.time()
         neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list,
                                            neighbor_counter, close_matches, argv)
-        end = time.time()
+        # end = time.time()
 
-        print('Time taken by nearest-neighbor search: ' + str((end - start)*1000) + 'ms')
+        # print('Time taken by nearest-neighbor search: ' + str((end - start)*1000) + 'ms')
         nn_times.append(end-start)
         nn_o.append(ctr_)
         iter_o.append(len(lot_nodes))
-        start = time.time()
+        # start = time.time()
         neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k, argv)
-        end = time.time()
-        print('Time taken by iterative search: ' + str((end - start)*1000) + 'ms')
+        # end = time.time()
+        # print('Time taken by iterative search: ' + str((end - start)*1000) + 'ms')
         iter_times.append(end - start)
         try:
             assert set(neighbors) == set(neighbors_2)
@@ -626,12 +622,13 @@ def testIt():
             [print(n[0]) for n in neighbors]
             print('\nIterative search results:')
             [print(n[0]) for n in neighbors_2]
-    print('Average iterative: ' + str(1000*sum(iter_times)/float(len(iter_times))))
-    print('Average nearest-neighbor: ' + str(1000*sum(nn_times)/float(len(nn_times))))
-    print('Average calls to nn: ' + str(float(sum(nn_o))/float(len(nn_o))))
-    print('Average calls to iter: ' + str(float(sum(iter_o))/float(len(iter_o))))
+    print('Average iterative runtime: ' + str(1000*sum(iter_times)/float(len(iter_times))))
+    print('Average nearest-neighbor runtime: ' + str(1000*sum(nn_times)/float(len(nn_times))))
+    print('Average number of calls to nearest-neighbor: ' + str(float(sum(nn_o))/float(len(nn_o))))
+    print('Average number of calls to iterative method: ' + str(float(sum(iter_o))/float(len(iter_o))))
 
 
+# main method for making csv files using geojson and web scraping
 def populate_csv():
     k = 5
     lot_nodes = []

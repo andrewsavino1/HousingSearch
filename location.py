@@ -1,3 +1,4 @@
+# location class to make objects for metro stops / grocery stores / etc
 class Location:
     def __init__(self, x, y):
         self.x = x
