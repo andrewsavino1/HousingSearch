@@ -127,12 +127,15 @@ def findClosestLocation(house, set):
 
 
 def get_anchor_code(i, j, k):
+    i = min(i, 99)
+    j = min(j, 99)
+    k = min(k, 99)
     return i * 10000 + j * 100 + k
 
 
 def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
     global metro_mult, sqft_mult, sqft_delta, metro_delta, price_delta
-    anchor_size_initial = 10
+    anchor_size_initial = 5
 
     # take random sample of lot nodes and perform regression (can probably import something to do this for us
 
@@ -145,7 +148,6 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
     X = numpy.array([sqft_vector, metro_vector]).transpose()
 
     regression = LinearRegression()  # sm.OLS(price_vector, metro_vector).fit()
-    print(X)
 
     regression.fit(X, price_vector)
 
@@ -156,8 +158,6 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
     metro_mult = regression.coef_[0]
     sqft_mult = regression.coef_[1]
 
-    print(metro_mult)
-    print(sqft_mult)
 
     # populate anchor nodes
     price_delta = max(price_vector) / anchor_size_initial
@@ -167,8 +167,6 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
         for j in range(anchor_size_initial):
             for k in range(anchor_size_initial):
                 anchor_nodes[get_anchor_code(i, j, k)] = AnchorNode(get_anchor_code(i, j, k))
-                # print(i+j+k)
-    print(x for x in anchor_nodes.keys())
 
     # connect anchor nodes (up, down, left, right, AND diagonal)
     global grid_dim
@@ -180,7 +178,7 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
                     for j_ in range(j - 1, j + 2):
                         for k_ in range(k - 1, k + 2):
                             if (i_ < anchor_size_initial and j_ < anchor_size_initial and k_ < anchor_size_initial and
-                                        i_ > 0 and j_ > 0 and k_ > 0 and (i != i_ or j != j_ or k != k_)):
+                                        i_ >= 0 and j_ >= 0 and k_ >= 0 and (i != i_ or j != j_ or k != k_)):
                                 anchor_nodes[get_anchor_code(i, j, k)].addNeighbor(
                                     anchor_nodes[get_anchor_code(i_, j_, k_)])
                                 # ... eww ^
@@ -209,9 +207,11 @@ def warmupFill(lot_nodes, anchor_nodes, k, numInitialNodes, sample_size=10):
 
     # now we find the smallest values in each row, return their indexes, and set those as the (initial) k-n-n
     for i in range(numInitialNodes):
-        idx = numpy.argpartition(A[i], k)  # get indexes of smallest values (closest distances
+        idx = numpy.argpartition(A[i], k)[0:k+2]  # get indexes of smallest values (closest distances)
         for n in idx:
-            lot_nodes[i].addNeighbor(lot_nodes[n])
+            lot_nodes[i].addNeighbor((lot_nodes[n], lot_nodes[n].getDistance(lot_nodes[i], sqft_mult, metro_mult)))
+        lot_nodes[i].neighbors.sort(key=(lambda x: x[1]))
+        lot_nodes[i].neighbors.pop(0)  # get rid of itself
     return sqft_mult, metro_mult
 
 
@@ -263,8 +263,8 @@ def findAnchorNode(lot_node, anchor_nodes):
         return anchor_nodes[get_anchor_code(price_coord, sqft_coord, 0)]
 
 
-def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter, close_matches_list=[],
-                           first_search=True, argv={}):
+def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neighbor_counter, close_matches_list,
+                           argv, first_search=True):
     # TODO - neighbor_counter needs to be updated simultaneously on all branches - should be by ref, not value
     start = time.time()
     global sqft_mult, metro_mult
@@ -292,46 +292,44 @@ def find_nearest_neighbors(starting_node, searching_node, k, neighbor_list, neig
         # [print(n) for n in immediate_neighbors]
 
         for a_node in immediate_neighbors:
-            for connected_node_tuple in a_node.neighbors:
-                if type(connected_node_tuple) is LotNode and type(searching_node) is LotNode:
-                    lot_tuple = connected_node_tuple, starting_node.getDistance(connected_node_tuple, sqft_mult,
+            for connected_node in a_node.neighbors:
+                if type(connected_node) is LotNode and type(starting_node) is LotNode:
+                    lot_tuple = connected_node, starting_node.getDistance(connected_node, sqft_mult,
                                                                                    metro_mult)
-                    if lot_tuple not in searching_node.neighbors:
+                    if lot_tuple not in starting_node.neighbors:
                         if argv == {}:
 
-                            if connected_node_tuple[0].getDistance(starting_node, sqft_mult, metro_mult) \
-                                    < searching_node.neighbors[-1][1]:
+                            if len(connected_node.neighbors) < k or connected_node.getDistance(starting_node, sqft_mult, metro_mult) \
+                                    < connected_node.neighbors[-1][1]:
                                 # replace furthest neighbor of the searching node with this new node, then sort
 
-                                searching_node.neighbors[-1] = (starting_node,
-                                                                connected_node_tuple[0].getDistance(starting_node,
-                                                                                                    sqft_mult,
-                                                                                                    metro_mult))
-                                searching_node.sort(key=(lambda x: x[1]))
+                                connected_node.neighbors.insert(len(connected_node.neighbors)-1, (starting_node, connected_node.getDistance(starting_node, sqft_mult, metro_mult)))
+                                connected_node.neighbors.sort(key=(lambda x: x[1]))
 
                             if lot_tuple not in possible_new_neighbors:
                                 possible_new_neighbors.append(lot_tuple)
-                                neighbor_counter[0] += 1
+                                neighbor_counter += 1
 
                         else:
-                            if connected_node_tuple[0].matches_conditions(argv) == 0:
+                            if connected_node.matches_conditions(argv) == 0:
                                 if lot_tuple not in possible_new_neighbors:
                                     possible_new_neighbors.append(lot_tuple)
-                                    neighbor_counter[0] += 1
+                                    neighbor_counter += 1
 
-                            elif connected_node_tuple[0].matches_conditions(argv) == 1:
+                            elif connected_node.matches_conditions(argv) == 1:
                                 if lot_tuple not in close_matches_list:
                                     close_matches_list.append(lot_tuple)
+                elif type(connected_node) is AnchorNode and connected_node not in immediate_neighbors:
+                    immediate_neighbors.append(connected_node)
 
         for next_node in possible_new_neighbors:
-            find_nearest_neighbors(starting_node, next_node, k, neighbor_list, neighbor_counter, first_search=False)
+            find_nearest_neighbors(starting_node, next_node, k, neighbor_list, neighbor_counter, close_matches_list, argv, first_search=False)
 
-        #print(possible_new_neighbors)
         neighbor_list += possible_new_neighbors
 
         neighbor_list.sort(key=(lambda x: x[1]))
         if len(neighbor_list) > k:
-            neighbor_list = neighbor_list[0::k]
+            neighbor_list = neighbor_list[:k]
 
         end = time.time()
 
@@ -346,7 +344,7 @@ def add_node_to_database(node, k, anchor_nodes):
     findAnchorNode(node, anchor_nodes).addNeighbor(node)
 
     # add the neighbor nodes
-    k_nearest_neighbors = find_nearest_neighbors(node, findAnchorNode(node, anchor_nodes), k, [], 0)
+    k_nearest_neighbors = find_nearest_neighbors(node, findAnchorNode(node, anchor_nodes), k, [], 0, [], {})
     for n in k_nearest_neighbors:
         node.addNeighbor(n)
 
@@ -498,7 +496,7 @@ def runIt():
 
     lot_nodes = read_from_csv('housingData1500.csv')
 
-    create_graph_space(lot_nodes, anchor_nodes, k, sample_size=200, warmup_size=500)
+    create_graph_space(lot_nodes, anchor_nodes, k, sample_size=200, warmup_size=1500)
 
     while True:
         neighbor_list = []
