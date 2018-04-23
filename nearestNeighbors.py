@@ -18,7 +18,7 @@ num_results = 10
 
 # print results of web scraping and geojson to a csv
 def print_to_csv(nodes):
-    with open('housingDatacsv', 'w', newline='') as csvfile:
+    with open('housingData.csv', 'w', newline='') as csvfile:
         fieldnames = ['parcel_id', 'address', 'price', 'sqft', 'metro_dist', 'grocery', 'kid_friendly', 'status',
                       'zipcode']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -445,7 +445,6 @@ def get_search_parameters():
     metro_dist = 99999999 if metro_dist_input == 'N' else int(str(metro_dist_input))
     acreage_min = 0 if acreage_min_input == 'N' else int(str(acreage_min_input))
 
-    # parking = True if str(parking_input) == "Y" else False
     grocery = True if str(grocery_input) == "Y" else False
     family = 0 if str(family_input) == "Y" else 99999
     property = True if str(property_input) == "Y" else False
