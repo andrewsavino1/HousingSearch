@@ -53,8 +53,9 @@ class LotNode(Node):
 
 
     def __str__(self):
-        return (self.address + '\n\tPrice: ' + str(self.price) + '\n\tsqft: ' + str(self.sqft)
-                + '\n\tDistance to Metro: ' + str(self.distanceToMetro))
+        vacantString = 'Vacant lot' if self.vacant else 'Existing structure'
+        return (self.address + '\tPrice: ' + str(self.price) + '\n\tsqft: ' + str(self.sqft)
+                + '\n\tDistance to Metro: ' + str(self.distanceToMetro) + '\n')
 
     def addNeighbor(self, node_tuple):
         self.neighbors.append(node_tuple)

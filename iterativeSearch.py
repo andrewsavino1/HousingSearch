@@ -7,6 +7,7 @@ ctr_ = 0
 # go through all the nodes and find the ones with the smallest adjusted distance from the query node
 def iterativeSearch(nodes, search_node, sqft_mult, metro_mult, k, argv):
     global ctr_
+    ctr_ = 0
     nodes_and_distances = []
     for node in nodes:
         ctr_ += 1

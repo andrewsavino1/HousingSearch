@@ -62,7 +62,7 @@ def read_from_csv(file):
                 node.setMetroDistance(metro_dist)
                 nodes_list.append(node)
             except:
-                print("this line wasn't a node")
+                print("Reading in file header")
     return nodes_list
 
 
@@ -417,8 +417,8 @@ def get_search_parameters():
 
     metro_dist_input = input("Enter a maximum acceptable distance (in miles) to a metro stop (or 'N' if not applicable): ")
     while not checkInt(metro_dist_input):
-        print("Error. Distance maximum must be a integer value.")
-        price_min_input = input("Enter a maximum acceptable distance to a metro stop (or 'N' if not applicable):")
+        print("Error. Distance maximum must be a numerical value.")
+        metro_dist_input = input("Enter a maximum acceptable distance to a metro stop (or 'N' if not applicable):")
 
     acreage_min_input = input("Enter a minimum acceptable square footage (or 'N' if not applicable): ")
     while not checkInt(acreage_min_input):
@@ -442,7 +442,7 @@ def get_search_parameters():
 
     price_min = 0 if price_min_input == 'N' else int(str(price_min_input))
     price_max = 99999999 if price_max_input == 'N' else int(str(price_max_input))
-    metro_dist = 99999999 if metro_dist_input == 'N' else int(str(metro_dist_input))
+    metro_dist = 99999999 if metro_dist_input == 'N' else float(str(metro_dist_input))
     acreage_min = 0 if acreage_min_input == 'N' else int(str(acreage_min_input))
 
     grocery = True if str(grocery_input) == "Y" else False
@@ -509,37 +509,27 @@ def runIt():
 
         dummy_node, argv = get_search_parameters()
         dummy_node.setAnchor(findAnchorNode(dummy_node, anchor_nodes))
-        # start = time.time()
+
         neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list,
                                            neighbor_counter, close_matches, argv)
-        # end = time.time()
 
-        if len(close_matches) > num_results:
-            close_matches = close_matches[0:num_results]
-        # print('Time taken by nearest-neighbor search: ' + str((end - start)*1000) + 'ms')
-        print('Recursive number of calls: ' + str(ctr_))
+        close_matches = close_matches[0:min(num_results, len(close_matches)-1)]
 
-        # start = time.time()
-        neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k, argv)
-        # end = time.time()
-        # print('Time taken by iterative search: ' + str((end - start)*1000) + 'ms')
-
-        try:
-            # check that results are the same and non empty
-            assert set(neighbors) == set(neighbors_2)
-            if (len(neighbors)) == 0:
-                print('Sorry, your search did not return any results. Please try again.')
-            else:
-                print('Success! The lists returned by the iterative search and the nearest-neighbors search are identical.')
-                [print(str(n[0]) + '\n' + str(n[1])) for n in neighbors]
-                print('\nClose matches: ')
-                [print(n[0]) for n in close_matches]
-        except:
-            print('Error: The lists returned by the iterative search and the nearest-neighbors search are different.')
-            print('Nearest neighbor search results:')
-            [print(str(n[0]) + '\n' + str(n[1])) for n in neighbors]
-            print('\nIterative search results:')
-            [print(str(n[0]) + '\n' + str(n[1])) for n in neighbors_2]
+        if len(neighbors) != 0 and len(close_matches) != 0:
+            print('SEARCH RESULTS: \n')
+            for n in neighbors: print(n[0])
+            print('\nCLOSE MATCHES: ')
+            for n in close_matches: print(n[0])
+        elif len(neighbors) != 0:
+            print('SEARCH RESULTS: \n')
+            for n in neighbors: print(n[0])
+            print('\nNo close matches found.')
+        elif len(close_matches) != 0:
+            print('\nNo exact matches found.')
+            print('CLOSE MATCHES: \n')
+            for n in close_matches: print(n[0])
+        else:
+            print('Sorry, your search did not return any results. Please try again.')
 
 
 # main method for running a test
@@ -555,25 +545,21 @@ def testIt():
     for file in files:
         lot_nodes.extend(read_from_csv(file))
 
-    #print(len(lot_nodes))
-
     create_graph_space(lot_nodes, anchor_nodes, k, sample_size=200, warmup_size=len(lot_nodes))
 
-    nn_times = []
-    iter_times = []
     nn_o = []
     iter_o = []
-    seeding = [2,3,5,6,7,8,9,10,35,13]
+    seeding = [2, 3, 5, 6, 7, 8, 9, 10, 35, 13]
 
     # run 10 seeded tests
     # seeding ensures fair comparison between trials
-    while len(nn_times) < 10:
+    while len(nn_o) < 10:
         global ctr_
         ctr_ = 0
         neighbor_list = []
         close_matches = []
         neighbor_counter = 0
-        random.seed(seeding[len(nn_times)])
+        random.seed(seeding[len(nn_o)])
         price_min = random.randint(100, 1000)
         price_max = random.randint(10, 1500) + price_min
         acreage_min = random.randint(0, 600)
@@ -597,32 +583,26 @@ def testIt():
             'grocery': grocery
         }
         dummy_node.setAnchor(findAnchorNode(dummy_node, anchor_nodes))
-        # start = time.time()
+
         neighbors = find_nearest_neighbors(dummy_node, findAnchorNode(dummy_node, anchor_nodes), k, neighbor_list,
                                            neighbor_counter, close_matches, argv)
-        # end = time.time()
 
-        # print('Time taken by nearest-neighbor search: ' + str((end - start)*1000) + 'ms')
-        nn_times.append(end-start)
         nn_o.append(ctr_)
         iter_o.append(len(lot_nodes))
-        # start = time.time()
+
         neighbors_2 = iterativeSearch(lot_nodes, dummy_node, sqft_mult, metro_mult, k, argv)
-        # end = time.time()
-        # print('Time taken by iterative search: ' + str((end - start)*1000) + 'ms')
-        iter_times.append(end - start)
+
         try:
             assert set(neighbors) == set(neighbors_2)
             print('Success! The lists returned by the iterative search and the nearest-neighbors search are identical.')
-            [print(n[0]) for n in neighbors]
+            for n in neighbors: print(n[0])
         except:
             print('Error: The lists returned by the iterative search and the nearest-neighbors search are different.')
             print('Nearest neighbor search results:')
-            [print(n[0]) for n in neighbors]
+            for n in neighbors: print(n[0])
             print('\nIterative search results:')
-            [print(n[0]) for n in neighbors_2]
-    print('Average iterative runtime: ' + str(1000*sum(iter_times)/float(len(iter_times))))
-    print('Average nearest-neighbor runtime: ' + str(1000*sum(nn_times)/float(len(nn_times))))
+            for n in neighbors_2: print(n[0])
+
     print('Average number of calls to nearest-neighbor: ' + str(float(sum(nn_o))/float(len(nn_o))))
     print('Average number of calls to iterative method: ' + str(float(sum(iter_o))/float(len(iter_o))))
 
@@ -636,4 +616,5 @@ def populate_csv():
     print_to_csv(lot_nodes)
 
 
+# change runIt() to testIt() to perform tests, or populate_csv() to populate csv files
 if __name__ == '__main__': runIt()
