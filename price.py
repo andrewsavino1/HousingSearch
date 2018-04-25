@@ -1,3 +1,6 @@
+# FILENAME: price.py
+
+# collect and store default prices for each neighborhood
 import pandas as pd
 
 file_loc = "https://raw.githubusercontent.com/andrewsavino1/HousingSearch/master/Data/missing_price.csv"

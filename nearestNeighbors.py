@@ -1,3 +1,7 @@
+# FILENAME: nearestNeighbors.py
+
+# main file for running the HOMER algorithm
+
 from node import *
 import createSet
 import numpy
@@ -496,6 +500,8 @@ def runIt():
 
     for file in files:
         lot_nodes.extend(read_from_csv(file))
+
+    print('Populating database. This may take a moment.')
 
     # populate the data structures
     create_graph_space(lot_nodes, anchor_nodes, k, sample_size=200, warmup_size=len(lot_nodes))

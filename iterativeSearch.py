@@ -1,3 +1,7 @@
+# FILENAME: iterativeSearch.py
+
+# used to run a brute-force iterative search
+
 from node import *
 import time
 num_results = 10

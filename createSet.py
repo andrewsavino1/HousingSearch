@@ -1,3 +1,7 @@
+# FILENAME: createSet.py
+
+# used to create sets of locations for calculating distance to parks, metro, etc
+
 from location import *
 import geojson as geo
 import os

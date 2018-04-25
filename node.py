@@ -1,3 +1,7 @@
+# FILENAME: node.py
+
+# used to create node class, anchornode and lotnode subclasses
+
 from location import *
 
 # threshold distances
